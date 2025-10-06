@@ -18,9 +18,17 @@ args = parser.parse_args()
 playlist = args.playlist
 print("[main] Playlist:", playlist)
 
+# Optional environment variables, fallback to defaults
+multicast_ip = os.environ.get("TARGET_MULTICAST", "239.100.0.1")
+multicast_port = int(os.environ.get("TARGET_PORT", 1234))
+
+TARGET = (multicast_ip, multicast_port)
+
+print(f"[config] Using TARGET: {TARGET}")
+
 PIPE_A = "/tmp/pipe_a"
 PIPE_B = "/tmp/pipe_b"
-TARGET = ("239.100.0.1", 1234)
+
 PACKET_SIZE = 1316
 
 CURRENT_PIPE = PIPE_A

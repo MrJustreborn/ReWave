@@ -1,0 +1,12 @@
+version: "3.9"
+
+services:
+  channel-1:
+    build:
+      context: ./channel
+    container_name: channel-1
+    network_mode: "host"
+    restart: unless-stopped
+    environment:
+      - TARGET_MULTICAST=239.100.0.1
+      - TARGET_PORT=1234
