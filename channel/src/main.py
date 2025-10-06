@@ -40,6 +40,9 @@ def relay_pipe(stop_event):
     time.sleep(0.5)
 
     while not stop_event.is_set():
+        if not DATA_PIPES:
+            time.sleep(0.5)
+            continue 
         pipe_path = DATA_PIPES.pop(0)
         
         print(f"[relay] Sending from {pipe_path} to {TARGET} ...")
@@ -62,16 +65,20 @@ def relay_pipe(stop_event):
 def start_ffmpeg(input_file, output_pipe):
     output_pipe = "file:" + output_pipe
     cmd = [
-        "ffmpeg",
-        "-re",
-        "-y",  # Overwrite pipe if needed
-        "-i", input_file,
-        "-c:v", "copy",
-        "-c:a", "copy",
-        "-f", "mpegts",
-        output_pipe
-        #"udp://239.100.0.1:1234"
-    ]
+    "ffmpeg",
+    "-re",
+    "-y",  # Overwrite pipe if needed
+    "-i", input_file,
+    "-vf", "scale=w=1920:h=1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black",
+    "-c:v", "libx264",
+    "-preset", "veryfast",
+    "-tune", "zerolatency",
+    "-c:a", "ac3",
+    "-b:a", "192k",
+    "-ac", "2",
+    "-f", "mpegts",
+    output_pipe
+]
     print(f"[ffmpeg] Starting for {input_file} → {output_pipe}")
     return subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
