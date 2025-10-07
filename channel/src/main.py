@@ -6,16 +6,19 @@ import socket
 import time
 import sys
 import argparse
+import json
+from datetime import datetime, timezone
 
-parser = argparse.ArgumentParser(description="Stream a playlist of files via FFmpeg + UDP relay")
-parser.add_argument(
-    "playlist",
-    nargs="+",  # one or more arguments
-    help="List of files to stream"
-)
-args = parser.parse_args()
+def parse_playlist_json(filename):
+    with open(filename, "r", encoding="utf-8") as f:
+        playlist = json.load(f)
 
-playlist = args.playlist
+    # Optional: Timestamps in datetime-Objekte konvertieren
+    for entry in playlist:
+        entry["timestamp"] = datetime.fromisoformat(entry["timestamp"])
+    return playlist
+
+playlist = parse_playlist_json("<SNIP>")
 print("[main] Playlist:", playlist)
 
 # Optional environment variables, fallback to defaults
@@ -70,12 +73,13 @@ def relay_pipe(stop_event):
 
     print("[relay] Stopped")
 
-def start_ffmpeg(input_file, output_pipe):
+def start_ffmpeg(input_file, output_pipe, seek):
     output_pipe = "file:" + output_pipe
     cmd = [
     "ffmpeg",
     "-re",
     "-y",  # Overwrite pipe if needed
+    "-ss", seek,
     "-i", input_file,
     "-vf", "scale=w=1920:h=1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black",
     "-c:v", "libx264",
@@ -106,9 +110,9 @@ def get_duration(input_file):
         print(f"[ffprobe] Could not get duration for {input_file}, default 10s")
         return 10.0
 
-def stream_file(file_path, pipe_path):
+def stream_file(file_path, pipe_path, seek = "00:00:00"):
     """Thread target: start ffmpeg for given file and pipe"""
-    proc = start_ffmpeg(file_path, pipe_path)
+    proc = start_ffmpeg(file_path, pipe_path, seek)
     DATA_PIPES.append(pipe_path)
     proc.wait()
     print(f"[thread] Finished streaming: {file_path}")
@@ -119,19 +123,44 @@ def main():
     relay_thread = threading.Thread(target=relay_pipe, args=(stop_event,))
     relay_thread.start()
 
+    playlist.sort(key=lambda e: e["timestamp"])
     with ThreadPoolExecutor(max_workers=2) as executor:
-        for next_file in playlist:
+        for entry in playlist:
             global CURRENT_PIPE, NEXT_PIPE
-            duration = get_duration(next_file)
-            print(f"\n[main] Now streaming: {next_file} (duration {duration:.2f}s)")
             
-            # Submit the ffmpeg streaming job to the threadpool
-            executor.submit(stream_file, next_file, CURRENT_PIPE)
+            start_time = entry["timestamp"]
+            file_path = entry["file"]
+            media_type = entry["type"]
+
+            now = datetime.now(timezone.utc)
+            delay = (start_time - now).total_seconds()
+            
+            
+            if delay < 0:
+                seek_seconds = abs(delay)
+                duration = get_duration(file_path)
+
+                if seek_seconds >= duration:
+                    print(f"[main] Skipping {file_path} — already finished ({seek_seconds:.1f}s late)")
+                    continue
+
+                seek_str = seconds_to_timestamp(seek_seconds)
+                print(f"[main] Late start for {file_path}, seeking to {seek_str}")
+            else:
+                # Warten bis Startzeit
+                print(f"[main] Waiting {delay:.1f}s until {file_path} starts at {start_time.isoformat()}")
+                time.sleep(delay)
+                seek_str = None
+                duration = get_duration(file_path)
+
+            print(f"\n[main] Now streaming: {file_path} ({media_type}, duration {duration:.2f}s)")
+
+            executor.submit(stream_file, file_path, CURRENT_PIPE, seek=seek_str)
             
             CURRENT_PIPE, NEXT_PIPE = NEXT_PIPE, CURRENT_PIPE
             
-            # Wait until 2 seconds before the video would end
-            wait_time = max(0, duration - 2)
+            # Wait until 5 seconds before the video would end
+            wait_time = max(0, duration - 5)
             print(f"[main] Waiting {wait_time:.2f}s before starting next stream")
             time.sleep(wait_time)
     
@@ -140,6 +169,12 @@ def main():
     relay_thread.join(timeout=2)
     print("[main] All done.")
 
+def seconds_to_timestamp(seconds: float) -> str:
+    """Konvertiert Sekunden in HH:MM:SS.ff"""
+    h = int(seconds // 3600)
+    m = int((seconds % 3600) // 60)
+    s = seconds % 60
+    return f"{h:02d}:{m:02d}:{s:05.2f}"
 
 if __name__ == "__main__":
     main()
