@@ -147,10 +147,9 @@ def main():
                 seek_str = seconds_to_timestamp(seek_seconds)
                 print(f"[main] Late start for {file_path}, seeking to {seek_str}")
             else:
-                # Warten bis Startzeit
                 print(f"[main] Waiting {delay:.1f}s until {file_path} starts at {start_time.isoformat()}")
-                time.sleep(delay)
-                seek_str = None
+                #time.sleep(delay)
+                seek_str = "00:00:00"
                 duration = get_duration(file_path)
 
             print(f"\n[main] Now streaming: {file_path} ({media_type}, duration {duration:.2f}s)")
