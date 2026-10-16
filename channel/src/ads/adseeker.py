@@ -3,7 +3,7 @@ import re
 
 VIDEO = "../../../test-movie/big_buck_bunny_1080p_h264.mov"
 THRESHOLD = 0.4
-WINDOW = 60        # Sekunden um Zielzeitpunkt
+WINDOW = 60        # Seconds around the target position
 MIN_DURATION = 3600
 TARGET_POSITIONS = [0.3, 0.5, 0.7]
 
@@ -32,10 +32,10 @@ def get_scene_changes_segment(video, start, length, threshold):
 
 def find_ads(video):
     duration = get_duration(video)
-    print(f"🎬 Dauer: {duration/60:.1f} min")
+    print(f"🎬 Duration: {duration/60:.1f} min")
 
     if duration < MIN_DURATION:
-        print("📺 Kürzer als 60 min → keine Werbung.")
+        print("📺 Shorter than 60 min → no ads.")
         return []
 
     candidates = []
@@ -46,24 +46,24 @@ def find_ads(video):
         if cuts:
             best = min(cuts, key=lambda c: abs(c - center))
             candidates.append(round(best, 2))
-            print(f"🔍 Bereich {pos*100:.0f}% → {len(cuts)} Schnitte, beste Stelle: {best:.2f}s")
+            print(f"🔍 Range {pos*100:.0f}% → {len(cuts)} cuts, best spot: {best:.2f}s")
         else:
-            print(f"⚠️ Bereich {pos*100:.0f}%: keine Schnitte gefunden.")
+            print(f"⚠️ Range {pos*100:.0f}%: no cuts found.")
     return candidates
 
 if __name__ == "__main__":
     positions = find_ads(VIDEO)
     if positions:
-        print("\n📺 Empfohlene Werbeblöcke:")
+        print("\n📺 Recommended ad breaks:")
         for c in positions:
             print(f" → {c:.2f}s")
         
-        # 🔁 Optionaler Testmodus mit ffplay
+        # 🔁 Optional preview mode using ffplay
         for c in positions:
             start = max(c - 1, 0)
             length = 2
-            mark_time = c - start  # Markerposition im Clip (immer bei ~10s)
-            print(f"\n▶️  Vorschau um {c:.2f}s (Marker bei {mark_time:.2f}s)")
+            mark_time = c - start  # Marker position within the clip
+            print(f"\n▶️  Preview around {c:.2f}s (marker at {mark_time:.2f}s)")
 
             cmd = [
                 "ffplay", "-hide_banner", "-autoexit",

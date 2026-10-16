@@ -12,7 +12,7 @@ from pathlib import Path
 
 def parse_playlist_json(filename):
 
-    # Pfad relativ zur aktuellen Python-Datei auflösen
+    # Resolve the path relative to the current Python file
     base_dir = Path(__file__).resolve().parent
     print(base_dir)
     file_path = (base_dir / filename).resolve()
@@ -22,7 +22,7 @@ def parse_playlist_json(filename):
     with open(file_path, "r", encoding="utf-8") as f:
         playlist = json.load(f)
 
-    # Optional: Timestamps in datetime-Objekte konvertieren
+    # Optional: convert timestamps to datetime objects
     for entry in playlist["slots"]:
         entry["start"] = datetime.fromisoformat(entry["start"])
         entry["end"] = datetime.fromisoformat(entry["end"])
@@ -49,7 +49,7 @@ NEXT_PIPE = PIPE_B
 
 DATA_PIPES = []
 
-# Pipe erstellen
+# Create the pipes
 for p in [PIPE_A, PIPE_B]:
     if not os.path.exists(p):
         os.mkfifo(p)
@@ -179,7 +179,7 @@ def main():
     print("[main] All done.")
 
 def seconds_to_timestamp(seconds: float) -> str:
-    """Konvertiert Sekunden in HH:MM:SS.ff"""
+    """Convert seconds to HH:MM:SS.ff"""
     h = int(seconds // 3600)
     m = int((seconds % 3600) // 60)
     s = seconds % 60

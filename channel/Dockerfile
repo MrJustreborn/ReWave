@@ -12,7 +12,7 @@ WORKDIR /app
 # Copy source code
 COPY src/ /app/
 
-# Install Python dependencies (falls requirements.txt existiert)
+# Install Python dependencies (if requirements.txt exists)
 #COPY src/requirements.txt /app/requirements.txt
 #RUN pip install --no-cache-dir -r requirements.txt || echo "No requirements.txt found"
 

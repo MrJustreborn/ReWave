@@ -1,1 +1,0 @@
-This is a typical TV-Channel with movies/series/ads etc, it will stream based on a playlist, see tests/playlist.json for a example
