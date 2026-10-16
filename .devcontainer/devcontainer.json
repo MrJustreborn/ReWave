@@ -1,18 +1,21 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/src/universal
 {
-	"name": "Default Linux Universal",
-	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
 	"image": "mcr.microsoft.com/devcontainers/universal:6-linux",
+	"name": "ReWave DevContainer",
+	"shutdownAction": "none",
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	"features": {
 		"ghcr.io/devcontainer-community/devcontainer-features/opencode.ai:1": {},
-		"ghcr.io/devcontainers-extra/features/ffmpeg-apt-get:1": {}
+		"ghcr.io/devcontainers-extra/features/ffmpeg-apt-get:1": {},
+		"ghcr.io/rocker-org/devcontainer-features/apt-packages:1": {
+			"packages": "screen"
+		}
 	},
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	// "forwardPorts": [],
+	"forwardPorts": [8080],
 
 	// Use 'postCreateCommand' to run commands after the container is created.
 	// "postCreateCommand": "uname -a",
@@ -23,7 +26,5 @@
 	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
 	// "remoteUser": "root"
 
-	"mounts": [
-		"source=${localEnv:HOME}/.config/opencode/opencode.json,target=/home/codespace/.config/opencode/opencode.json,type=bind,readonly"
-	]
+	"mounts": []
 }

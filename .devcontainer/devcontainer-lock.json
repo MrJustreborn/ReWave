@@ -9,6 +9,11 @@
       "version": "1.0.17",
       "resolved": "ghcr.io/devcontainers-extra/features/ffmpeg-apt-get@sha256:735491c8e9b2236cae727d6d4904663f6a58eb131d8c4b6b18fd0eea3d8c5b71",
       "integrity": "sha256:735491c8e9b2236cae727d6d4904663f6a58eb131d8c4b6b18fd0eea3d8c5b71"
+    },
+    "ghcr.io/rocker-org/devcontainer-features/apt-packages:1": {
+      "version": "1.0.2",
+      "resolved": "ghcr.io/rocker-org/devcontainer-features/apt-packages@sha256:87a4d7750a596a5db034ba8508782f31aebdc2ffe955c66aaecb33d9de2ecdae",
+      "integrity": "sha256:87a4d7750a596a5db034ba8508782f31aebdc2ffe955c66aaecb33d9de2ecdae"
     }
   }
 }
