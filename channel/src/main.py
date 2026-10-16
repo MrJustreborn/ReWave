@@ -8,17 +8,27 @@ import sys
 import argparse
 import json
 from datetime import datetime, timezone
+from pathlib import Path
 
 def parse_playlist_json(filename):
-    with open(filename, "r", encoding="utf-8") as f:
+
+    # Pfad relativ zur aktuellen Python-Datei auflösen
+    base_dir = Path(__file__).resolve().parent
+    print(base_dir)
+    file_path = (base_dir / filename).resolve()
+
+    print("open file", file_path)
+
+    with open(file_path, "r", encoding="utf-8") as f:
         playlist = json.load(f)
 
     # Optional: Timestamps in datetime-Objekte konvertieren
-    for entry in playlist:
-        entry["timestamp"] = datetime.fromisoformat(entry["timestamp"])
-    return playlist
+    for entry in playlist["slots"]:
+        entry["start"] = datetime.fromisoformat(entry["start"])
+        entry["end"] = datetime.fromisoformat(entry["end"])
+    return playlist["slots"]
 
-playlist = parse_playlist_json("<SNIP>")
+playlist = parse_playlist_json("../../tests/playlist.json")
 print("[main] Playlist:", playlist)
 
 # Optional environment variables, fallback to defaults

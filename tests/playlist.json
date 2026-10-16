@@ -1,0 +1,47 @@
+{
+    "slots": [
+        {
+            "start": "2025-10-07T12:00:00+02:00",
+            "end": "2025-10-07T14:00:00+02:00",
+            "stream": [
+                {
+                    "file": "preroll.mp4",
+                    "type": "preroll",
+                    "duration": 300
+                },
+                {
+                    "end": "01:05:00",
+                    "file": "movie.mp4",
+                    "type": "content",
+                    "duration": 3900
+                },
+                {
+                    "file": "ad2.avi",
+                    "type": "ad",
+                    "duration": 300
+                },
+                {
+                    "file": "ad1.avi",
+                    "type": "ad",
+                    "duration": 300
+                },
+                {
+                    "file": "ad4.avi",
+                    "type": "ad",
+                    "duration": 300
+                },
+                {
+                    "start": "01:05:00",
+                    "file": "movie.mp4",
+                    "type": "content",
+                    "duration": 4200
+                },
+                {
+                    "file": "ad4.avi",
+                    "type": "ad",
+                    "duration": 300
+                }
+            ]
+        }
+    ]
+}

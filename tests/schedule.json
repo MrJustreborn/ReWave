@@ -1,0 +1,25 @@
+{
+    "channal-1": {
+        "content": [],
+        "schedule": [
+            {
+                "templates": {
+                    "default": [
+                        {
+                            "start": "00:00",
+                            "end": "06:00",
+                            "tags": []
+                        }
+                    ]
+                },
+                "monday": "default",
+                "tuesday": "default",
+                "wednesday": "default",
+                "thursday": "default",
+                "friday": "default",
+                "saturday": "default",
+                "sunday": "default"
+            }
+        ]
+    }
+}
