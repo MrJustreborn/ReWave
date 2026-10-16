@@ -1,0 +1,35 @@
+{
+  "name": "@rewave/network",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ReWave network: master and manager (channel lifecycle, media library, REST API)",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "generate": "openapi-typescript openapi.yaml -o src/generated/schema.ts",
+    "postinstall": "npm run generate",
+    "predev": "npm run generate",
+    "dev": "tsx watch src/main.ts",
+    "prebuild": "npm run generate",
+    "build": "tsc -p tsconfig.json && cp -r src/db/migrations dist/db/migrations",
+    "typecheck": "npm run generate && tsc --noEmit",
+    "start": "node dist/main.js",
+    "migrate": "tsx src/db/migrate.ts",
+    "adseeker": "tsx src/ingest/adseeker-cli.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.3.1",
+    "dockerode": "^5.0.1",
+    "fastify": "^5.12.7",
+    "jose": "^6.2.12"
+  },
+  "devDependencies": {
+    "@types/dockerode": "^4.0.2",
+    "@types/node": "^24.11.0",
+    "openapi-typescript": "^7.13.0",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
+  }
+}

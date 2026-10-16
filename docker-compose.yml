@@ -10,3 +10,20 @@ services:
     environment:
       - TARGET_MULTICAST=239.100.0.1
       - TARGET_PORT=1234
+
+  network:
+    build:
+      context: ./network
+    container_name: network
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - AUTH_MODE=off
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./sample-media:/media-pool:ro
+      - network-data:/app/data
+
+volumes:
+  network-data:
