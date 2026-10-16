@@ -1,0 +1,1137 @@
+openapi: 3.1.0
+info:
+  title: ReWave Network API
+  summary: Management API for the ReWave virtual TV network (management-ui and tv-ui).
+  description: |
+    ReWave is a self-hosted, Docker-based virtual TV network. The network is
+    the master and manager: it owns the media library, manages channel
+    lifecycles (one Docker container per channel), resolves schedule
+    templates into playlists and pushes them to the channels.
+
+    Architecture (strictly one-directional):
+
+    - management-ui and tv-ui talk only to this API;
+    - the network talks to the channels (via the channel-side API, specified
+      separately in the channel project) — channels never talk back;
+    - channels never read the media library; they only receive resolved
+      playlists.
+
+    ## Versioning
+
+    - The API is versioned by URI path (`/v1/`).
+    - Breaking changes — removing or renaming fields, changing types or
+      semantics, adding required fields — are only made in a new major
+      version (`/v2/`).
+    - Additive changes — new optional fields, new endpoints, new enum
+      values, new scopes — stay within `/v1/`.
+    - Clients MUST ignore unknown object fields and unknown enum values.
+
+    ## Authentication
+
+    All endpoints require authentication. The network is a pure OAuth2
+    resource server: token issuance and login are handled by an external
+    identity provider (out of scope for this API; the URLs below are
+    placeholders configured at deploy time). Browser clients (management-ui,
+    tv-ui) use the Authorization Code flow with PKCE.
+
+    Scopes:
+
+    - `channels:read` — read channels (definition, status, resolved playlist)
+    - `channels:write` — create/modify/remove channels, control their lifecycle
+    - `videos:read` — read the media library (videos, ad-break points)
+    - `videos:write` — add/remove videos, trigger ingestion
+    - `watch` — send viewer heartbeats (on-demand watching, tv-ui)
+  version: 0.1.0
+servers:
+  - url: http://localhost:8080
+    description: Default development server (the network's REST API port).
+tags:
+  - name: Channels
+    description: Channel registry, lifecycle control, viewer heartbeats and resolved playlists.
+  - name: Videos
+    description: Media library — the video pool and ad-break ingestion.
+paths:
+  /v1/channels:
+    get:
+      tags:
+        - Channels
+      operationId: listChannels
+      summary: List channels
+      description: Returns all channels known to the network, with definition and current status.
+      security:
+        - uiAuth:
+            - channels:read
+      responses:
+        '200':
+          description: The channel list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelList'
+              examples:
+                channels:
+                  $ref: '#/components/examples/channelList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+        - Channels
+      operationId: createChannel
+      summary: Add a channel
+      description: |
+        Creates a channel definition. The channel is not started by this
+        call; use the start operation to launch its container.
+      security:
+        - uiAuth:
+            - channels:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChannelDefinition'
+            examples:
+              channel:
+                $ref: '#/components/examples/channelDefinition'
+      responses:
+        '201':
+          description: The created channel (status `created`, not yet running).
+          headers:
+            Location:
+              description: URL of the created channel resource.
+              schema:
+                type: string
+                format: uri-reference
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Channel'
+              examples:
+                channel:
+                  $ref: '#/components/examples/channelCreated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /v1/channels/{channelId}:
+    get:
+      tags:
+        - Channels
+      operationId: getChannel
+      summary: Channel detail
+      description: Returns one channel with its definition and current status.
+      security:
+        - uiAuth:
+            - channels:read
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+      responses:
+        '200':
+          description: The channel.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Channel'
+              examples:
+                channel:
+                  $ref: '#/components/examples/channel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+        - Channels
+      operationId: replaceChannel
+      summary: Replace a channel definition
+      description: |
+        Replaces the channel's definition (name, type, content pool,
+        schedule). The change takes effect the next time the network resolves
+        the channel's playlist; an already running channel is not restarted.
+      security:
+        - uiAuth:
+            - channels:write
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChannelDefinition'
+            examples:
+              channel:
+                $ref: '#/components/examples/channelDefinition'
+      responses:
+        '200':
+          description: The updated channel.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Channel'
+              examples:
+                channel:
+                  $ref: '#/components/examples/channel'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    delete:
+      tags:
+        - Channels
+      operationId: deleteChannel
+      summary: Remove a channel
+      description: Removes the channel (stops its container if running, then deletes the definition).
+      security:
+        - uiAuth:
+            - channels:write
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+      responses:
+        '204':
+          description: The channel was removed.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/channels/{channelId}/start:
+    post:
+      tags:
+        - Channels
+      operationId: startChannel
+      summary: Start a channel
+      description: |
+        Starts the channel's container. Idempotent — starting an already
+        running channel is a no-op. Status changes are asynchronous; poll
+        the channel detail to confirm the transition to `running`.
+      security:
+        - uiAuth:
+            - channels:write
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+      responses:
+        '200':
+          description: The channel with its current state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Channel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/channels/{channelId}/stop:
+    post:
+      tags:
+        - Channels
+      operationId: stopChannel
+      summary: Stop a channel
+      description: |
+        Stops the channel's container. Idempotent — stopping an already
+        stopped channel is a no-op. Status changes are asynchronous; poll
+        the channel detail to confirm the transition to `stopped`.
+      security:
+        - uiAuth:
+            - channels:write
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+      responses:
+        '200':
+          description: The channel with its current state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Channel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/channels/{channelId}/watch:
+    post:
+      tags:
+        - Channels
+      operationId: watchChannel
+      summary: Viewer heartbeat
+      description: |
+        Reports "someone is watching" (tv-ui). Heartbeats from distinct
+        viewer IDs count as distinct viewers; an on-demand channel starts
+        on its first heartbeat and keeps running for a keep-alive window
+        after the last viewer leaves. Clients send heartbeats periodically
+        while a viewer is watching.
+      security:
+        - uiAuth:
+            - watch
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WatchRequest'
+            examples:
+              heartbeat:
+                $ref: '#/components/examples/watchRequest'
+      responses:
+        '200':
+          description: The current viewer count and channel state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WatchResponse'
+              examples:
+                watching:
+                  $ref: '#/components/examples/watchResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/channels/{channelId}/playlist:
+    get:
+      tags:
+        - Channels
+      operationId: getChannelPlaylist
+      summary: Resolved playlist
+      description: |
+        Returns the currently resolved playlist — the exact payload the
+        network pushes to the channel. The `slots` array is empty if no
+        playlist has been resolved yet.
+      security:
+        - uiAuth:
+            - channels:read
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+      responses:
+        '200':
+          description: The resolved playlist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Playlist'
+              examples:
+                playlist:
+                  $ref: '#/components/examples/playlist'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /v1/videos:
+    get:
+      tags:
+        - Videos
+      operationId: listVideos
+      summary: List media pool
+      description: Returns the media library — processed and unprocessed videos.
+      security:
+        - uiAuth:
+            - videos:read
+      parameters:
+        - $ref: '#/components/parameters/ProcessedFilter'
+      responses:
+        '200':
+          description: The video list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoList'
+              examples:
+                videos:
+                  $ref: '#/components/examples/videoList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+        - Videos
+      operationId: addVideo
+      summary: Add a video
+      description: |
+        Adds a video to the media pool and triggers ingestion (ad-break
+        detection) asynchronously. The response returns the video with
+        `processed` set to false; poll the video detail to watch the
+        ad-break points fill in.
+      security:
+        - uiAuth:
+            - videos:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewVideo'
+            examples:
+              video:
+                $ref: '#/components/examples/newVideo'
+      responses:
+        '201':
+          description: The added video (ingestion pending).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Video'
+              examples:
+                video:
+                  $ref: '#/components/examples/video'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /v1/videos/{videoId}:
+    get:
+      tags:
+        - Videos
+      operationId: getVideo
+      summary: Video detail
+      description: Returns video metadata and the detected ad-break points.
+      security:
+        - uiAuth:
+            - videos:read
+      parameters:
+        - $ref: '#/components/parameters/VideoId'
+      responses:
+        '200':
+          description: The video.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Video'
+              examples:
+                video:
+                  $ref: '#/components/examples/video'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - Videos
+      operationId: deleteVideo
+      summary: Remove a video
+      description: |
+        Removes the video and its ad-break points from the media library.
+        Playlists that were already resolved are not rewritten.
+      security:
+        - uiAuth:
+            - videos:write
+      parameters:
+        - $ref: '#/components/parameters/VideoId'
+      responses:
+        '204':
+          description: The video was removed.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  securitySchemes:
+    uiAuth:
+      type: oauth2
+      description: |
+        OAuth2 for the browser UIs (management-ui, tv-ui). The network is a
+        pure resource server: login and token issuance are handled by an
+        external identity provider — the URLs below are placeholders and
+        MUST be configured at deploy time. Browser clients use the
+        Authorization Code flow with PKCE (required).
+      flows:
+        authorizationCode:
+          authorizationUrl: https://idp.example.com/authorize
+          tokenUrl: https://idp.example.com/token
+          refreshUrl: https://idp.example.com/refresh
+          scopes:
+            channels:read: Read channels (definition, status, resolved playlist)
+            channels:write: Create/modify/remove channels, control their lifecycle
+            videos:read: Read the media library (videos, ad-break points)
+            videos:write: Add/remove videos, trigger ingestion
+            watch: Send viewer heartbeats (on-demand watching, tv-ui)
+  parameters:
+    ChannelId:
+      name: channelId
+      in: path
+      required: true
+      description: Channel identifier.
+      schema:
+        type: string
+        format: uuid
+    VideoId:
+      name: videoId
+      in: path
+      required: true
+      description: Video identifier.
+      schema:
+        type: string
+        format: uuid
+    ProcessedFilter:
+      name: processed
+      in: query
+      required: false
+      description: Filter by ingestion state; omit to list all videos.
+      schema:
+        type: boolean
+  responses:
+    BadRequest:
+      description: Invalid request (validation failed).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            error:
+              $ref: '#/components/examples/error'
+    Unauthorized:
+      description: Missing or invalid OAuth token.
+      headers:
+        WWW-Authenticate:
+          description: Authentication challenge for the failed request.
+          schema:
+            type: string
+          example: 'Bearer realm="rewave-network"'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            error:
+              $ref: '#/components/examples/error'
+    Forbidden:
+      description: Authenticated, but the token is missing the required scope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            error:
+              $ref: '#/components/examples/error'
+    NotFound:
+      description: Resource not found (unknown channel or video identifier).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            error:
+              $ref: '#/components/examples/error'
+    Conflict:
+      description: Conflict (duplicate channel name or video path).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            error:
+              $ref: '#/components/examples/error'
+  examples:
+    channelDefinition:
+      summary: A channel definition as sent by the management-ui.
+      value:
+        name: channel-1
+        type: movies
+        contentPool:
+          videoIds:
+            - 5d1f9e3a-1b64-4c0a-9d2f-7a6e4b8c1d20
+          tags:
+            - movie
+        schedule:
+          templates:
+            default:
+              - start: '00:00'
+                end: '06:00'
+                tags: []
+              - start: '20:15'
+                end: '22:30'
+                tags:
+                  - movie
+                  - primetime
+          days:
+            monday: default
+            tuesday: default
+            wednesday: default
+            thursday: default
+            friday: default
+            saturday: default
+            sunday: default
+    channelCreated:
+      summary: A freshly created channel, not yet started.
+      value:
+        id: 3f6bd1c2-9c5e-4d20-8a3d-6f2a5c9e7b11
+        name: channel-1
+        type: movies
+        contentPool:
+          videoIds:
+            - 5d1f9e3a-1b64-4c0a-9d2f-7a6e4b8c1d20
+          tags:
+            - movie
+        schedule:
+          templates:
+            default:
+              - start: '00:00'
+                end: '06:00'
+                tags: []
+              - start: '20:15'
+                end: '22:30'
+                tags:
+                  - movie
+                  - primetime
+          days:
+            monday: default
+            tuesday: default
+            wednesday: default
+            thursday: default
+            friday: default
+            saturday: default
+            sunday: default
+        status: created
+        createdAt: '2025-09-30T18:45:00+02:00'
+    channel:
+      summary: A running movie channel.
+      value:
+        id: 3f6bd1c2-9c5e-4d20-8a3d-6f2a5c9e7b11
+        name: channel-1
+        type: movies
+        contentPool:
+          videoIds:
+            - 5d1f9e3a-1b64-4c0a-9d2f-7a6e4b8c1d20
+          tags:
+            - movie
+        schedule:
+          templates:
+            default:
+              - start: '00:00'
+                end: '06:00'
+                tags: []
+              - start: '20:15'
+                end: '22:30'
+                tags:
+                  - movie
+                  - primetime
+          days:
+            monday: default
+            tuesday: default
+            wednesday: default
+            thursday: default
+            friday: default
+            saturday: default
+            sunday: default
+        status: running
+        createdAt: '2025-09-30T18:45:00+02:00'
+    channelList:
+      summary: Two channels, one running and one stopped.
+      value:
+        channels:
+          - id: 3f6bd1c2-9c5e-4d20-8a3d-6f2a5c9e7b11
+            name: channel-1
+            type: movies
+            contentPool:
+              videoIds:
+                - 5d1f9e3a-1b64-4c0a-9d2f-7a6e4b8c1d20
+              tags:
+                - movie
+            schedule:
+              templates:
+                default:
+                  - start: '00:00'
+                    end: '06:00'
+                    tags: []
+                  - start: '20:15'
+                    end: '22:30'
+                    tags:
+                      - movie
+                      - primetime
+              days:
+                monday: default
+                tuesday: default
+                wednesday: default
+                thursday: default
+                friday: default
+                saturday: default
+                sunday: default
+            status: running
+            createdAt: '2025-09-30T18:45:00+02:00'
+          - id: 9a2c4e6b-8f10-4a3d-b5c7-1e2d3f4a5b6c
+            name: channel-2
+            type: cartoons
+            contentPool:
+              videoIds: []
+              tags:
+                - cartoon
+            schedule:
+              templates:
+                default:
+                  - start: '06:00'
+                    end: '20:00'
+                    tags:
+                      - cartoon
+              days:
+                monday: default
+                tuesday: default
+                wednesday: default
+                thursday: default
+                friday: default
+                saturday: default
+                sunday: default
+            status: stopped
+            createdAt: '2025-10-01T09:12:00+02:00'
+    playlist:
+      summary: A resolved playlist as pushed to a channel.
+      value:
+        slots:
+          - start: '2025-10-07T12:00:00+02:00'
+            end: '2025-10-07T14:00:00+02:00'
+            stream:
+              - file: preroll.mp4
+                type: preroll
+                duration: 300
+              - end: '01:05:00'
+                file: movie.mp4
+                type: content
+                duration: 3900
+              - file: ad2.avi
+                type: ad
+                duration: 300
+              - file: ad1.avi
+                type: ad
+                duration: 300
+              - file: ad4.avi
+                type: ad
+                duration: 300
+              - start: '01:05:00'
+                file: movie.mp4
+                type: content
+                duration: 4200
+              - file: ad4.avi
+                type: ad
+                duration: 300
+    newVideo:
+      summary: A video being added to the media pool.
+      value:
+        path: /media-pool/movies/new-movie.mp4
+        title: New Movie
+        tags:
+          - movie
+    video:
+      summary: A processed movie with one detected ad break.
+      value:
+        id: 5d1f9e3a-1b64-4c0a-9d2f-7a6e4b8c1d20
+        path: /media-pool/movies/movie.mp4
+        title: Movie
+        duration: 8100
+        tags:
+          - movie
+        processed: true
+        adBreaks:
+          - position: 3900
+    videoList:
+      summary: The media pool, one processed and one pending video.
+      value:
+        videos:
+          - id: 5d1f9e3a-1b64-4c0a-9d2f-7a6e4b8c1d20
+            path: /media-pool/movies/movie.mp4
+            title: Movie
+            duration: 8100
+            tags:
+              - movie
+            processed: true
+            adBreaks:
+              - position: 3900
+          - id: 7c3b8d5e-2a14-4b6e-9c1f-0d8e7f6a5b4c
+            path: /media-pool/movies/new-movie.mp4
+            title: New Movie
+            duration: 5400
+            tags:
+              - movie
+            processed: false
+            adBreaks: []
+    watchRequest:
+      summary: A viewer heartbeat from the tv-ui.
+      value:
+        viewerId: tvui-8f3c1a2b
+    watchResponse:
+      summary: Two viewers watching; keep-alive window running.
+      value:
+        viewers: 2
+        status: running
+        keepAliveUntil: '2025-10-07T14:05:00+02:00'
+    error:
+      summary: A 404 error response.
+      value:
+        code: 404
+        message: Channel 3f6bd1c2-9c5e-4d20-8a3d-6f2a5c9e7b11 not found
+  schemas:
+    ChannelDefinition:
+      type: object
+      description: |
+        The operator-defined part of a channel. An absent or empty content
+        pool means the channel may draw from the entire media library
+        (still filtered by slot tags).
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: Unique channel name (used to derive the container name).
+        type:
+          type: string
+          minLength: 1
+          description: Category of the channel, e.g. movies, cartoons, series.
+          examples:
+            - movies
+            - cartoons
+            - series
+        contentPool:
+          $ref: '#/components/schemas/ContentPool'
+        schedule:
+          $ref: '#/components/schemas/Schedule'
+    Channel:
+      type: object
+      description: A TV channel (definition plus current runtime status).
+      allOf:
+        - $ref: '#/components/schemas/ChannelDefinition'
+        - type: object
+          required:
+            - id
+            - status
+            - createdAt
+          properties:
+            id:
+              type: string
+              format: uuid
+              description: Channel identifier (server-assigned).
+            status:
+              $ref: '#/components/schemas/ChannelStatus'
+            createdAt:
+              type: string
+              format: date-time
+              description: When the channel was created.
+    ChannelStatus:
+      type: string
+      description: |
+        Lifecycle state of a channel. Status changes are asynchronous
+        (container start/stop); poll the channel detail for confirmation.
+      enum:
+        - created
+        - running
+        - stopped
+        - error
+    ChannelList:
+      type: object
+      description: Wrapper for the channel list (extensible, e.g. for pagination).
+      required:
+        - channels
+      properties:
+        channels:
+          type: array
+          items:
+            $ref: '#/components/schemas/Channel'
+    ContentPool:
+      type: object
+      description: |
+        The content a channel may draw from when its schedule is resolved:
+        the union of the listed video IDs and the videos carrying any of
+        the listed tags. An empty or absent pool means the entire media
+        library (still filtered by slot tags).
+      properties:
+        videoIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Videos allowed for this channel by identifier.
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+          description: Videos tagged with any of these tags are allowed.
+    Schedule:
+      type: object
+      description: |
+        Per-day scheduling: named day templates plus a weekday-to-template
+        mapping. Weekdays missing from `days` fall back to the template
+        named "default" when present; otherwise the channel runs nothing
+        that day.
+      required:
+        - templates
+        - days
+      properties:
+        templates:
+          type: object
+          description: Named day templates; each template is a list of TV slots.
+          propertyNames:
+            type: string
+            minLength: 1
+            pattern: '^[A-Za-z0-9_-]+$'
+          additionalProperties:
+            type: array
+            minItems: 1
+            items:
+              $ref: '#/components/schemas/Slot'
+        days:
+          type: object
+          description: Assigns weekdays to template names.
+          propertyNames:
+            $ref: '#/components/schemas/Weekday'
+          additionalProperties:
+            type: string
+            minLength: 1
+            description: Template name (a key of `templates`).
+    Weekday:
+      type: string
+      enum:
+        - monday
+        - tuesday
+        - wednesday
+        - thursday
+        - friday
+        - saturday
+        - sunday
+    Slot:
+      type: object
+      description: |
+        A TV slot within a day template (wall-clock times, e.g. primetime
+        20:15-22:30). An `end` earlier than `start` means the slot crosses
+        midnight.
+      required:
+        - start
+        - end
+        - tags
+      properties:
+        start:
+          type: string
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+          description: Slot start time (HH:MM).
+        end:
+          type: string
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+          description: Slot end time (HH:MM).
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+          description: |
+            Content-matching filters. A video matches the slot if its tags
+            include at least one of these tags; an empty tag list matches
+            any video (within the channel's content pool).
+    Playlist:
+      type: object
+      description: |
+        A resolved playlist: exactly what the network pushes to the channel.
+        Slots carry concrete start and end datetimes; the stream entries of
+        a slot are played in order.
+      required:
+        - slots
+      properties:
+        slots:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResolvedSlot'
+    ResolvedSlot:
+      type: object
+      description: A scheduled slot resolved to concrete times and content.
+      required:
+        - start
+        - end
+        - stream
+      properties:
+        start:
+          type: string
+          format: date-time
+          description: Slot start (RFC 3339 with offset).
+        end:
+          type: string
+          format: date-time
+          description: Slot end (RFC 3339 with offset).
+        stream:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/StreamEntry'
+    StreamEntry:
+      type: object
+      description: One playback item within a resolved slot.
+      required:
+        - file
+        - type
+        - duration
+      properties:
+        file:
+          type: string
+          minLength: 1
+          description: Path of the video in the shared media pool, as resolved by the network.
+        type:
+          type: string
+          description: Role of the item in the stream.
+          enum:
+            - preroll
+            - content
+            - ad
+        duration:
+          type: number
+          description: Planned playback duration in seconds.
+        start:
+          type: string
+          pattern: '^[0-9]{2}:[0-5][0-9]:[0-5][0-9]$'
+          description: |
+            Seek offset (HH:MM:SS) into the source file, used when a video
+            is split around an ad break.
+        end:
+          type: string
+          pattern: '^[0-9]{2}:[0-5][0-9]:[0-5][0-9]$'
+          description: Stop offset (HH:MM:SS) into the source file.
+    Video:
+      type: object
+      description: A video in the media library.
+      required:
+        - id
+        - path
+        - title
+        - duration
+        - tags
+        - processed
+        - adBreaks
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Video identifier (server-assigned).
+        path:
+          type: string
+          minLength: 1
+          description: Path of the video in the media pool.
+        title:
+          type: string
+          minLength: 1
+          description: Display title.
+        duration:
+          type: number
+          description: Duration in seconds, as reported by ffprobe.
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+          description: Metadata tags, matched by schedule slot tags.
+        processed:
+          type: boolean
+          description: True once ad-break detection has run; `adBreaks` is authoritative then.
+        adBreaks:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdBreak'
+          description: Detected ad-break points; empty while unprocessed.
+    AdBreak:
+      type: object
+      description: A detected ad-break position within a video.
+      required:
+        - position
+      properties:
+        position:
+          type: number
+          minimum: 0
+          description: Position in seconds into the video where an ad break starts.
+    VideoList:
+      type: object
+      description: Wrapper for the video list (extensible, e.g. for pagination).
+      required:
+        - videos
+      properties:
+        videos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Video'
+    NewVideo:
+      type: object
+      description: A video being added to the media pool.
+      required:
+        - path
+      properties:
+        path:
+          type: string
+          minLength: 1
+          description: Path of the video in the media pool.
+        title:
+          type: string
+          minLength: 1
+          description: Display title (defaults to the file name when omitted).
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+          description: Metadata tags, matched by schedule slot tags.
+    WatchRequest:
+      type: object
+      description: A viewer heartbeat.
+      required:
+        - viewerId
+      properties:
+        viewerId:
+          type: string
+          minLength: 1
+          description: Opaque viewer identifier generated by the tv-ui (per browser session).
+    WatchResponse:
+      type: object
+      description: The state of an on-demand channel after a heartbeat.
+      required:
+        - viewers
+        - status
+      properties:
+        viewers:
+          type: integer
+          minimum: 0
+          description: Number of distinct viewers currently heartbeating.
+        status:
+          $ref: '#/components/schemas/ChannelStatus'
+        keepAliveUntil:
+          type: string
+          format: date-time
+          description: |
+            When the last viewer leaves, the channel keeps running until
+            this time. Absent if no keep-alive window is running.
+    Error:
+      type: object
+      description: Error response body.
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          description: HTTP status code, repeated in the body.
+        message:
+          type: string
+          description: Human-readable error description.

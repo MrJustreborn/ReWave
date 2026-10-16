@@ -20,22 +20,15 @@ the channels, and channels never talk back.
   window after the last viewer leaves (per-viewer heartbeats).
 - **REST API** — the only public surface, for management-ui and tv-ui.
 
-## Planned API sketch
+## REST API
 
-```
-GET    /channels              list channels (definition, type, status)
-POST   /channels              add a channel
-GET    /channels/{id}         channel detail + status
-DELETE /channels/{id}         remove channel (stops its container)
-POST   /channels/{id}/start   start the channel container
-POST   /channels/{id}/stop    stop the channel container
-POST   /channels/{id}/watch   heartbeat: "someone is watching" (tv-ui)
-GET    /videos                list media pool (processed / unprocessed)
-POST   /videos                add video to pool → triggers ingestion
-GET    /videos/{id}           metadata + ad-break points
-```
-
-This is a sketch, not a contract.
+Specified API-first: the authoritative contract is
+[`openapi.yaml`](openapi.yaml) (OpenAPI 3.1). Paths are versioned under
+`/v1/` — breaking changes only in a future `/v2/`, additive changes stay
+in `/v1/`. All endpoints require OAuth2 (the network is a pure resource
+server; login/IdP stays out of scope and is configured at deploy time)
+with the scopes `channels:read`, `channels:write`, `videos:read`,
+`videos:write` and `watch`.
 
 ## Media library (SQLite)
 
@@ -70,5 +63,6 @@ yet:
 ## Status
 
 Early stage: the ad-break detection prototype (`src/ads/adseeker.py`,
-standalone script) and example data (`examples/`) exist; the manager itself is
-not implemented yet — this README is the spec.
+standalone script), example data (`examples/`) and the REST API contract
+([`openapi.yaml`](openapi.yaml)) exist; the manager itself is not
+implemented yet — this README is the spec.

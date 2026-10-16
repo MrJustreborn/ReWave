@@ -13,6 +13,10 @@ Facts an agent needs here:
   standalone from its own directory — its `VIDEO` path is CWD-relative) and
   `examples/` (example playlist/schedule data, not consumed by code) exist;
   the manager itself is not implemented. The README remains the spec.
+- `openapi.yaml` is the authoritative REST API contract (OpenAPI 3.1,
+  API-first): `/v1/` paths, OAuth2 resource-server auth with the scopes
+  `channels:read`, `channels:write`, `videos:read`, `videos:write`,
+  `watch`. No server code exists yet — keep spec and code in sync.
 - The network is the only component allowed to know channels: control flow is
   strictly network → channel, never the reverse.
 - The SQLite media library is single-writer and owned by the network; it is
