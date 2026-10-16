@@ -10,7 +10,7 @@ before working there.
 | Path             | Purpose                                                              |
 | ---------------- | -------------------------------------------------------------------- |
 | `channel/`       | One TV channel: scheduled FFmpeg playlist streaming (prototype)        |
-| `network/`       | Master & manager: channel lifecycle, media library, REST API (manager not implemented; contains the ad-break detection prototype and example data) |
+| `network/`       | Master & manager: channel lifecycle, media library, REST API (TypeScript skeleton; handlers stubbed) |
 | `management-ui/` | Web UI to manage the network (concept, no code yet)                   |
 | `tv-ui/`         | Virtual TV web UI with on-demand channel watching (concept, no code yet) |
 | `sample-media/`  | Sample media, gitignored via `*.mov` (fresh clones start empty)       |
@@ -27,11 +27,16 @@ before working there.
 
 ## Repo-wide facts
 
-- There is no test suite, linter, typecheck, or CI anywhere in this repo;
-  don't go looking for test commands.
-- Python code is stdlib-only: no `requirements.txt`, no pip dependencies
-  (the venv under `channel/venv` is untracked local clutter; the Docker image
-  installs nothing).
+- There is no test suite, linter, or CI anywhere in this repo; don't go
+  looking for test commands. The only build/typecheck entry points are the
+  npm scripts in `network/` (`npm run typecheck`, `npm run build`).
+- Python code in `channel/` is stdlib-only: no `requirements.txt`, no pip
+  dependencies (the venv under `channel/venv` is untracked local clutter; the
+  Docker image installs nothing).
+- The `network/` subproject is TypeScript on Node.js (npm; see its AGENTS.md).
+  Its API types are generated from `network/openapi.yaml` into
+  `network/src/generated/` at install/build time — gitignored and always
+  regenerated; never edit or commit that directory.
 - `ffmpeg` and `ffprobe` are hard requirements. They exist inside the Docker
   image (`channel/Dockerfile`) and are installed into the devcontainer via the
   `ffmpeg-apt-get` feature in `.devcontainer/devcontainer.json` (takes effect
@@ -62,9 +67,17 @@ before working there.
 
 ## Network gotchas
 
-- `network/src/ads/adseeker.py` must be run from its own directory
-  (`network/src/ads/`) because its `VIDEO` path is CWD-relative
-  (`../../../sample-media/...`).
+- `network/` is a TypeScript skeleton: all REST handlers are `501` stubs.
+  API types are generated from `openapi.yaml` into `src/generated/` during
+  install/build (gitignored, always regenerated); the `predev`/`prebuild`/
+  `typecheck` scripts run the generation themselves, so nothing depends on
+  `postinstall` running (npm's install-scripts policy may skip it).
+- Ad-break detection is `network/src/ingest/adseeker.ts` (ported from the
+  former Python prototype; output parity was verified before deleting it).
+  Run it from `network/` via
+  `npm run adseeker -- <video> [--min-duration <seconds>]`.
+- SQLite is Node's built-in `node:sqlite` (not better-sqlite3 — avoids
+  native install scripts; hence the `>=24` engine pin).
 - `network/examples/` is not consumed by any code yet (it sketches a resolved
   playlist and per-day schedule templates for the future manager).
 

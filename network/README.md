@@ -62,7 +62,15 @@ yet:
 
 ## Status
 
-Early stage: the ad-break detection prototype (`src/ads/adseeker.py`,
-standalone script), example data (`examples/`) and the REST API contract
-([`openapi.yaml`](openapi.yaml)) exist; the manager itself is not
-implemented yet — this README is the spec.
+Early stage: the REST API contract ([`openapi.yaml`](openapi.yaml)) is
+implemented as a TypeScript skeleton — API types are generated from the spec
+at build time (gitignored output), a Fastify server with OAuth2
+resource-server auth (`AUTH_MODE=off` is the dev bypass; `jwks` mode requires
+`AUTH_JWKS_URL`, `AUTH_ISSUER` and `AUTH_AUDIENCE`), SQLite migrations, a
+Docker client module, and the ad-break detection ported from the former
+Python prototype to `src/ingest/` (`npm run adseeker -- <video>`). All REST
+handlers are `501` stubs — the manager logic is still to be implemented; this
+README remains the spec.
+
+Run it: `npm install && npm run dev` (listens on `:8080`), or
+`docker compose up network`.
