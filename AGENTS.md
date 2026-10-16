@@ -10,7 +10,7 @@ Python "TV station" that streams scheduled playlists as MPEG-TS over UDP multica
 
 ## Running
 
-- Hard requirement: `ffmpeg` and `ffprobe` on PATH. They are **not installed in the devcontainer** — they only exist inside the Docker image (`channel/dockerfile`). Verify with `command -v ffmpeg` before blaming the code.
+- Hard requirement: `ffmpeg` and `ffprobe` on PATH. They are **not installed in the devcontainer** — they only exist inside the Docker image (`channel/Dockerfile`). Verify with `command -v ffmpeg` before blaming the code.
 - Code is stdlib-only: no `requirements.txt`, no pip dependencies (the venv under `channel/venv` is untracked local clutter; the Docker image installs nothing).
 - Channel entrypoint: `python3 channel/src/main.py`. Config via env vars `TARGET_MULTICAST` (default `239.100.0.1`) and `TARGET_PORT` (default `1234`).
 - Ad-break finder: `python3 adseeker.py` — must be run from `channel/src/ads/` because its `VIDEO` path is CWD-relative (`../../../test-movie/...`).
@@ -26,4 +26,3 @@ Python "TV station" that streams scheduled playlists as MPEG-TS over UDP multica
 ## Conventions
 
 - Comments, docstrings, and some log messages are German; identifiers are English. Match the surrounding style of the file you edit.
-- The channel Dockerfile is lowercase `dockerfile`; compose builds from `./channel`.
