@@ -70,3 +70,6 @@ before working there.
   messages. Historical German comments in `channel/src/` have been
   translated; do not reintroduce them.
 - Identifiers are English. Match the surrounding style of the file you edit.
+- Commits may be made for logical steps, but the message must always be
+  prefixed with `[AI]`, e.g. `[AI] Cleanup` or `[AI] Implement <specify
+  here>`.
