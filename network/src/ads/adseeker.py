@@ -1,7 +1,7 @@
 import subprocess
 import re
 
-VIDEO = "../../../test-movie/big_buck_bunny_1080p_h264.mov"
+VIDEO = "../../../sample-media/big_buck_bunny_1080p_h264.mov"
 THRESHOLD = 0.4
 WINDOW = 60        # Seconds around the target position
 MIN_DURATION = 3600

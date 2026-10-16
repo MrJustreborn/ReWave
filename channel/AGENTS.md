@@ -10,9 +10,11 @@ output).
 Facts an agent needs here:
 
 - Python, stdlib-only. Entry point: `src/main.py`; config via the
-  `TARGET_MULTICAST` / `TARGET_PORT` environment variables.
+  `TARGET_MULTICAST` / `TARGET_PORT` / `PLAYLIST` environment variables.
 - `ffmpeg` / `ffprobe` are required and only exist inside the Docker image —
   not in the devcontainer. Verify with `command -v ffmpeg` first.
 - A channel never talks to the network. The media library database is
-  off-limits here; playlists arrive already resolved.
+  off-limits here; playlists arrive already resolved. (The `PLAYLIST` default
+  points into `../network/examples/` — dev sample data, not an architectural
+  dependency.)
 - Repo-wide facts and gotchas live in the root `AGENTS.md`.

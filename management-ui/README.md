@@ -11,7 +11,7 @@ talks **only** to the network's REST API — never to channels directly.
 - Media pool: add videos (triggers ingestion and ad-break detection on the
   network side), see processed / unprocessed state
 - Scheduling: edit playlist / schedule templates per channel and per day
-  (cf. `tests/schedule.json`)
+  (cf. `../network/examples/schedule.json`)
 
 ## Status
 

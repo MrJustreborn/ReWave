@@ -10,11 +10,10 @@ before working there.
 | Path             | Purpose                                                              |
 | ---------------- | -------------------------------------------------------------------- |
 | `channel/`       | One TV channel: scheduled FFmpeg playlist streaming (prototype)        |
-| `network/`       | Master & manager: channel lifecycle, media library, REST API (concept, no code yet) |
+| `network/`       | Master & manager: channel lifecycle, media library, REST API (manager not implemented; contains the ad-break detection prototype and example data) |
 | `management-ui/` | Web UI to manage the network (concept, no code yet)                   |
 | `tv-ui/`         | Virtual TV web UI with on-demand channel watching (concept, no code yet) |
-| `tests/`         | Playlist/schedule JSON **data**, not automated tests                   |
-| `test-movie/`    | Sample media, gitignored via `*.mov` (fresh clones start empty)       |
+| `sample-media/`  | Sample media, gitignored via `*.mov` (fresh clones start empty)       |
 
 ## Architecture rules (repo-wide)
 
@@ -30,7 +29,7 @@ before working there.
 
 - There is no test suite, linter, typecheck, or CI anywhere in this repo;
   don't go looking for test commands.
-- Channel code is stdlib-only: no `requirements.txt`, no pip dependencies
+- Python code is stdlib-only: no `requirements.txt`, no pip dependencies
   (the venv under `channel/venv` is untracked local clutter; the Docker image
   installs nothing).
 - `ffmpeg` and `ffprobe` are hard requirements. They are **not installed in
@@ -42,22 +41,28 @@ before working there.
 
 ## Channel gotchas
 
-- `main.py` hardcodes the playlist path relative to itself:
-  `../../tests/playlist.json` → repo-root `tests/playlist.json`. The Dockerfile
-  copies only `src/`, so in the container that resolves to
-  `/tests/playlist.json`, which is neither copied nor mounted — compose
-  currently cannot start the channel successfully.
+- `main.py` reads the playlist from the `PLAYLIST` env var; its default is
+  relative to the file (`../../network/examples/playlist.json` → repo-root
+  `network/examples/playlist.json`). That default points into the network
+  project — dev sample data only, not an architectural dependency; the
+  channel API will replace it. The Dockerfile copies only `src/`, so in the
+  container the default resolves to `/network/examples/playlist.json`, which
+  is neither copied nor mounted — compose currently cannot start the channel
+  successfully (mounting a playlist and setting `PLAYLIST` in compose would
+  fix it).
 - Schema mismatch: `main()` sorts slots by `entry["timestamp"]` and reads
-  slot-level `file`/`type`, but `tests/playlist.json` slots have `start`/`end`
-  plus a nested `stream` array — running main.py against the example playlist
-  raises `KeyError`. Expect schema-reconciliation work rather than "fixing"
-  one side blindly.
-- `tests/schedule.json` is not consumed by any code yet (it sketches per-day
-  schedule templates for a future `network/`).
-- `channel/src/ads/adseeker.py` must be run from `channel/src/ads/` because
-  its `VIDEO` path is CWD-relative (`../../../test-movie/...`). Long-term it
-  belongs to the network's ingestion pipeline (ad-break points are per-video
-  library data, not per-channel).
+  slot-level `file`/`type`, but `network/examples/playlist.json` slots have
+  `start`/`end` plus a nested `stream` array — running main.py against the
+  example playlist raises `KeyError`. Expect schema-reconciliation work
+  rather than "fixing" one side blindly.
+
+## Network gotchas
+
+- `network/src/ads/adseeker.py` must be run from its own directory
+  (`network/src/ads/`) because its `VIDEO` path is CWD-relative
+  (`../../../sample-media/...`).
+- `network/examples/` is not consumed by any code yet (it sketches a resolved
+  playlist and per-day schedule templates for the future manager).
 
 ## Conventions
 

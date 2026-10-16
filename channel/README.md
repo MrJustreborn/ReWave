@@ -14,7 +14,8 @@ playlists (video paths plus ad-break points) to the channel.
 
 `src/main.py` is a working prototype:
 
-1. Reads a playlist (hardcoded path → repo-root `tests/playlist.json`).
+1. Reads a playlist (path from the `PLAYLIST` env var; default → repo-root
+   `network/examples/playlist.json`).
 2. For each entry: starts FFmpeg with `-re` (real-time), scales and pads to
    1920×1080, encodes H.264 + AC-3 into MPEG-TS on a named pipe
    (`/tmp/pipe_a` / `/tmp/pipe_b`, alternating between entries).
@@ -24,20 +25,24 @@ playlists (video paths plus ad-break points) to the channel.
 Late starts are handled by seeking into the file; entries that already
 finished are skipped.
 
-`src/ads/adseeker.py` is a legacy helper (standalone script, CWD-relative
-paths): it uses FFmpeg scene detection to find good ad-break points in long
-videos. Ad-break points are per-video library data, not per-channel — long-term
-this belongs to the network's ingestion pipeline and will move to `network/`
-when ingestion is implemented.
+Ad-break detection is not channel work — it is ingestion work (ad-break points
+are per-video library data, not per-channel). The prototype lives in the
+network project: `../network/src/ads/adseeker.py` (standalone script,
+CWD-relative paths) uses FFmpeg scene detection to find good ad-break points
+in long videos.
 
 ## Configuration
 
 Environment variables:
 
-| Variable           | Default       | Purpose                      |
-| ------------------ | ------------- | ---------------------------- |
-| `TARGET_MULTICAST`  | `239.100.0.1` | UDP multicast target address |
-| `TARGET_PORT`      | `1234`        | UDP multicast target port    |
+| Variable           | Default                                 | Purpose                                  |
+| ------------------ | --------------------------------------- | ---------------------------------------- |
+| `TARGET_MULTICAST` | `239.100.0.1`                           | UDP multicast target address            |
+| `TARGET_PORT`      | `1234`                                  | UDP multicast target port               |
+| `PLAYLIST`         | `../../network/examples/playlist.json` | Playlist path, relative to `src/main.py` |
+
+The `PLAYLIST` default points into `../network/examples/` — dev sample data
+from the network project, not an architectural dependency.
 
 ## Planned
 
@@ -46,7 +51,8 @@ Environment variables:
 - **RTSP server output** — so the tv-ui and later plugins can watch the
   channel.
 - **Playlist schema reconciliation** — `main()` expects slot-level
-  `timestamp`/`file`/`type`, but `tests/playlist.json` uses `start`/`end` with
+  `timestamp`/`file`/`type`, but `network/examples/playlist.json` uses
+  `start`/`end` with
   a nested `stream` array.
 
 ## Running
@@ -61,7 +67,8 @@ docker compose up    # from the repo root (Linux, host networking)
 
 ## Gotchas
 
-- In the container the hardcoded playlist path resolves to
-  `/tests/playlist.json`, which is neither copied nor mounted — compose
-  currently cannot start the channel successfully.
+- In the container the default playlist path resolves to
+  `/network/examples/playlist.json`, which is neither copied nor mounted —
+  compose currently cannot start the channel successfully. Mounting a
+  playlist and setting `PLAYLIST` in compose would fix it.
 - Code is stdlib-only; there are no pip dependencies.

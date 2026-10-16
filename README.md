@@ -45,19 +45,24 @@ the channels; channels never read the database.
 This is a mono-repo. Each subproject has its own `README.md` (the spec) and its
 own `AGENTS.md` with project-specific facts.
 
-| Path             | Purpose                                                         | Status             |
-| ---------------- | --------------------------------------------------------------- | ------------------ |
-| `network/`       | Master & manager: channel lifecycle, media library, REST API     | concept            |
-| `channel/`       | One TV channel: scheduled FFmpeg playlist streaming             | working prototype |
-| `management-ui/` | Web UI to manage the network (channels, media, schedules)       | concept            |
-| `tv-ui/`         | Virtual TV web UI with smart on-demand channel start/stop       | concept            |
-| `tests/`         | Shared example data (playlist/schedule JSON) — not a test suite | data               |
-| `test-movie/`    | Sample media, gitignored via `*.mov`; fresh clones start empty  | data               |
+| Path             | Purpose                                                     | Status             |
+| ---------------- | ----------------------------------------------------------- | ------------------ |
+| `network/`       | Master & manager: channel lifecycle, media library, REST API | concept + first code |
+| `channel/`       | One TV channel: scheduled FFmpeg playlist streaming         | working prototype |
+| `management-ui/` | Web UI to manage the network (channels, media, schedules)  | concept            |
+| `tv-ui/`         | Virtual TV web UI with smart on-demand channel start/stop   | concept            |
+| `sample-media/`  | Sample media (gitignored via `*.mov`; fresh clones start empty) | data            |
+
+The network's "first code" is the ad-break detection prototype
+(`network/src/ads/adseeker.py`) plus example data (`network/examples/`) — the
+manager itself is not implemented yet.
 
 ## Current status
 
-Only the channel prototype exists today: `channel/src/main.py` runs a playlist
-through FFmpeg and relays MPEG-TS over UDP multicast.
+Code that exists today: the channel prototype (`channel/src/main.py` runs a
+playlist through FFmpeg and relays MPEG-TS over UDP multicast) and the
+network's ad-break detection prototype (`network/src/ads/adseeker.py`, a
+standalone helper).
 
 ```bash
 python3 channel/src/main.py   # requires ffmpeg + ffprobe on PATH
@@ -72,10 +77,11 @@ image does not contain the playlist. Details and known issues live in the root
 ## Roadmap
 
 1. **Channel API** — HTTP API so the network can start/stop/configure a
-   channel; reconcile the playlist schema (`tests/playlist.json` vs. code).
+   channel; reconcile the playlist schema (`network/examples/playlist.json` vs. code).
 2. **Network** — manager container: channel lifecycle (Docker), media library
    (SQLite: videos, metadata, ad-break points), ingestion pipeline with
-   ad-break detection (today's `adseeker` prototype), REST API for the UIs.
+   ad-break detection (the `adseeker` prototype in `network/src/ads/`), REST
+   API for the UIs.
 3. **Management UI** — channel management, media pool, playlist/schedule
    editing.
 4. **TV UI + RTSP** — on-demand channels: watching a channel starts it, and a

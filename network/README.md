@@ -13,8 +13,8 @@ the channels, and channels never talk back.
 - **Media library** — SQLite database owned and written only by the network:
   videos, metadata, ad-break points. Never mounted into other containers.
 - **Video ingestion** — when a new video is added to the pool: check whether it
-  is already processed, run ad-break detection (scene detection; today's
-  prototype is `channel/src/ads/adseeker.py`), store the result.
+  is already processed, run ad-break detection (scene detection; the
+  prototype lives at `src/ads/adseeker.py`), store the result.
 - **Watcher tracking** — smart on-demand channels for the tv-ui: a channel
   starts when someone wants to watch it and keeps running for a keep-alive
   window after the last viewer leaves (per-viewer heartbeats).
@@ -51,6 +51,15 @@ If ingestion turns out to be heavy (scene detection is CPU-hungry FFmpeg work),
 it can be split into its own library/ingest container later — the same
 treatment as the DVB muxer.
 
+## Examples
+
+`examples/` sketches what the network will produce — not consumed by any code
+yet:
+
+- `playlist.json` — a resolved playlist as pushed to a channel (slots with
+  `start`/`end` and a nested `stream` array of preroll/content/ad entries)
+- `schedule.json` — per-day schedule templates per channel
+
 ## Roadmap
 
 - **DVB muxing** — coordinate a separate muxer container with hardware access
@@ -60,4 +69,6 @@ treatment as the DVB muxer.
 
 ## Status
 
-No code yet — this README is the spec.
+Early stage: the ad-break detection prototype (`src/ads/adseeker.py`,
+standalone script) and example data (`examples/`) exist; the manager itself is
+not implemented yet — this README is the spec.

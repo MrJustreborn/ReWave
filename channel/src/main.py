@@ -28,16 +28,18 @@ def parse_playlist_json(filename):
         entry["end"] = datetime.fromisoformat(entry["end"])
     return playlist["slots"]
 
-playlist = parse_playlist_json("../../tests/playlist.json")
-print("[main] Playlist:", playlist)
-
 # Optional environment variables, fallback to defaults
+playlist_path = os.environ.get("PLAYLIST", "../../network/examples/playlist.json")
 multicast_ip = os.environ.get("TARGET_MULTICAST", "239.100.0.1")
 multicast_port = int(os.environ.get("TARGET_PORT", 1234))
 
 TARGET = (multicast_ip, multicast_port)
 
 print(f"[config] Using TARGET: {TARGET}")
+print(f"[config] Using playlist: {playlist_path}")
+
+playlist = parse_playlist_json(playlist_path)
+print("[main] Playlist:", playlist)
 
 PIPE_A = "/tmp/pipe_a"
 PIPE_B = "/tmp/pipe_b"
