@@ -32,10 +32,14 @@ before working there.
 - Python code is stdlib-only: no `requirements.txt`, no pip dependencies
   (the venv under `channel/venv` is untracked local clutter; the Docker image
   installs nothing).
-- `ffmpeg` and `ffprobe` are hard requirements. They are **not installed in
-  the devcontainer** — they only exist inside the Docker image
-  (`channel/Dockerfile`). Verify with `command -v ffmpeg` before blaming the
-  code.
+- `ffmpeg` and `ffprobe` are hard requirements. They exist inside the Docker
+  image (`channel/Dockerfile`) and are installed into the devcontainer via the
+  `ffmpeg-apt-get` feature in `.devcontainer/devcontainer.json` (takes effect
+  after a devcontainer rebuild; for an already-running container,
+  `sudo apt-get update && sudo apt-get install -y ffmpeg` works). Verify with
+  `command -v ffmpeg` before blaming the code. Note: the devcontainer uses
+  Ubuntu 24.04's ffmpeg (6.1.x) while the channel image uses Debian's — a minor
+  version skew that is acceptable for dev work.
 - Docker: `docker compose up` builds `channel/` with `network_mode: host`
   (host networking is required for multicast; Linux only).
 

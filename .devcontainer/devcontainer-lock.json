@@ -4,6 +4,11 @@
       "version": "1.0.7",
       "resolved": "ghcr.io/devcontainer-community/devcontainer-features/opencode.ai@sha256:312520e651f8438c67d6823464fffaf42449e1e05e7020ef721748a4a95fa1fb",
       "integrity": "sha256:312520e651f8438c67d6823464fffaf42449e1e05e7020ef721748a4a95fa1fb"
+    },
+    "ghcr.io/devcontainers-extra/features/ffmpeg-apt-get:1": {
+      "version": "1.0.17",
+      "resolved": "ghcr.io/devcontainers-extra/features/ffmpeg-apt-get@sha256:735491c8e9b2236cae727d6d4904663f6a58eb131d8c4b6b18fd0eea3d8c5b71",
+      "integrity": "sha256:735491c8e9b2236cae727d6d4904663f6a58eb131d8c4b6b18fd0eea3d8c5b71"
     }
   }
 }
