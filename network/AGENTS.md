@@ -23,6 +23,11 @@ Facts an agent needs here:
   (`db/migrations/`), a dockerode client module and the ad-break detection
   port (`src/ingest/`) exist — but all REST handlers are `501` stubs. Keep
   spec and code in sync.
+- Migrations are forward-only and run automatically at server startup
+  (`npm run migrate` applies manually, `npm run migrate:status` lists
+  applied/pending). Applied files are checksum-validated; renamed, deleted,
+  edited-after-apply and out-of-order files are rejected — never edit an
+  applied migration, add a new numbered `NNNN_description.sql` instead.
 - SQLite is Node's built-in `node:sqlite` (`DatabaseSync`) — no native npm
   dependency; that is also why the engine is pinned to `>=24`. The database
   path defaults to `data/network.db` (`DB_PATH`).

@@ -17,6 +17,7 @@
     "typecheck": "npm run generate && tsc --noEmit",
     "start": "node dist/main.js",
     "migrate": "tsx src/db/migrate.ts",
+    "migrate:status": "tsx src/db/migrate.ts status",
     "adseeker": "tsx src/ingest/adseeker-cli.ts"
   },
   "dependencies": {

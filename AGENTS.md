@@ -78,6 +78,8 @@ before working there.
   `npm run adseeker -- <video> [--min-duration <seconds>]`.
 - SQLite is Node's built-in `node:sqlite` (not better-sqlite3 — avoids
   native install scripts; hence the `>=24` engine pin).
+- Migrations are forward-only with checksum validation: never edit an
+  already-applied `network/src/db/migrations/` file — add a new numbered one.
 - `network/examples/` is not consumed by any code yet (it sketches a resolved
   playlist and per-day schedule templates for the future manager).
 
