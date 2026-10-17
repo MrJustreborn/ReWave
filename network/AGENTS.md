@@ -13,10 +13,13 @@ Facts an agent needs here:
   `npm run typecheck`, `npm run start` (dist/), `npm run migrate`,
   `npm run adseeker -- <video> [--min-duration <seconds>]`.
 - `openapi.yaml` is the authoritative REST API contract (OpenAPI 3.1,
-  API-first; `/v1/` paths, OAuth2 resource-server auth). API types are
-  generated from it by `openapi-typescript` into `src/generated/` at
+  API-first; `/v1/` paths, OAuth2 resource-server auth). API types
+  (`schema.ts` via `openapi-typescript`) and the auth-scope map
+  (`security.ts` via `scripts/generate-security.ts`, typechecked through
+  `tsconfig.scripts.json`) are generated from it into `src/generated/` at
   install/build time: gitignored, always regenerated — never edit or commit
-  that directory.
+  that directory. Auth scopes are never hardcoded: every operation must
+  declare `uiAuth` security in the spec, and generation fails otherwise.
 - Skeleton status: Fastify server, OAuth2 resource-server auth
   (`AUTH_MODE=off` default for dev; `jwks` requires `AUTH_JWKS_URL` plus
   optional `AUTH_ISSUER`/`AUTH_AUDIENCE`), SQLite migrations

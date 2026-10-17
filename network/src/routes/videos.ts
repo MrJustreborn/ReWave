@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type { components } from "../generated/schema.js";
+import type { RouteConfig } from "./route-config.js";
 import { notImplemented } from "./stubs.js";
 
 interface VideoIdParams {
@@ -13,25 +14,25 @@ interface ListVideosQuerystring {
 export function registerVideoRoutes(app: FastifyInstance): void {
   app.get<{ Querystring: ListVideosQuerystring }>(
     "/v1/videos",
-    { config: { operationId: "listVideos" } },
+    { config: { operationId: "listVideos" } satisfies RouteConfig },
     async (_request, reply) => notImplemented(reply, "listVideos"),
   );
 
   app.post<{ Body: components["schemas"]["NewVideo"] }>(
     "/v1/videos",
-    { config: { operationId: "addVideo" } },
+    { config: { operationId: "addVideo" } satisfies RouteConfig },
     async (_request, reply) => notImplemented(reply, "addVideo"),
   );
 
   app.get<{ Params: VideoIdParams }>(
     "/v1/videos/:videoId",
-    { config: { operationId: "getVideo" } },
+    { config: { operationId: "getVideo" } satisfies RouteConfig },
     async (_request, reply) => notImplemented(reply, "getVideo"),
   );
 
   app.delete<{ Params: VideoIdParams }>(
     "/v1/videos/:videoId",
-    { config: { operationId: "deleteVideo" } },
+    { config: { operationId: "deleteVideo" } satisfies RouteConfig },
     async (_request, reply) => notImplemented(reply, "deleteVideo"),
   );
 }

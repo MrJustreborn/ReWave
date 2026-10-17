@@ -8,13 +8,13 @@
     "node": ">=24"
   },
   "scripts": {
-    "generate": "openapi-typescript openapi.yaml -o src/generated/schema.ts",
+    "generate": "openapi-typescript openapi.yaml -o src/generated/schema.ts && tsx scripts/generate-security.ts",
     "postinstall": "npm run generate",
     "predev": "npm run generate",
     "dev": "tsx watch src/main.ts",
     "prebuild": "npm run generate",
     "build": "tsc -p tsconfig.json && cp -r src/db/migrations dist/db/migrations",
-    "typecheck": "npm run generate && tsc --noEmit",
+    "typecheck": "npm run generate && tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.scripts.json",
     "start": "node dist/main.js",
     "migrate": "tsx src/db/migrate.ts",
     "migrate:status": "tsx src/db/migrate.ts status",
@@ -31,6 +31,7 @@
     "@types/node": "^24.11.0",
     "openapi-typescript": "^7.13.0",
     "tsx": "^4.23.15",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "yaml": "^2.9.1"
   }
 }

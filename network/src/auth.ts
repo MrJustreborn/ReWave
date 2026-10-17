@@ -1,22 +1,8 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import type { Config } from "./config.js";
-
-const SCOPES_BY_OPERATION: Readonly<Record<string, string>> = {
-  listChannels: "channels:read",
-  createChannel: "channels:write",
-  getChannel: "channels:read",
-  replaceChannel: "channels:write",
-  deleteChannel: "channels:write",
-  startChannel: "channels:write",
-  stopChannel: "channels:write",
-  watchChannel: "watch",
-  getChannelPlaylist: "channels:read",
-  listVideos: "videos:read",
-  addVideo: "videos:write",
-  getVideo: "videos:read",
-  deleteVideo: "videos:write",
-};
+import { SCOPES_BY_OPERATION } from "./generated/security.js";
+import type { RouteConfig } from "./routes/route-config.js";
 
 function tokenScopes(scope: unknown): string[] {
   if (typeof scope === "string") {
@@ -35,13 +21,15 @@ export function createAuthHook(config: Config) {
     if (config.authMode === "off") {
       return;
     }
-    const routeConfig = request.routeOptions.config as { operationId?: string } | undefined;
+    const routeConfig = request.routeOptions.config as unknown as RouteConfig | undefined;
     if (routeConfig?.operationId === undefined) {
       return;
     }
-    const requiredScope = SCOPES_BY_OPERATION[routeConfig.operationId];
-    if (requiredScope === undefined) {
-      reply.code(403).send({ code: 403, message: `No scope configured for ${routeConfig.operationId}` });
+    const requiredScopes = SCOPES_BY_OPERATION[routeConfig.operationId];
+    if (!Array.isArray(requiredScopes)) {
+      reply
+        .code(403)
+        .send({ code: 403, message: `No scopes configured for ${String(routeConfig.operationId)}` });
       return;
     }
     const header = request.headers.authorization;
@@ -56,8 +44,10 @@ export function createAuthHook(config: Config) {
         issuer: config.issuer,
         audience: config.audience,
       });
-      if (!tokenScopes(payload.scope).includes(requiredScope)) {
-        reply.code(403).send({ code: 403, message: `Token is missing the required scope ${requiredScope}` });
+      const granted = tokenScopes(payload.scope);
+      const missing = requiredScopes.filter((required) => !granted.includes(required));
+      if (missing.length > 0) {
+        reply.code(403).send({ code: 403, message: `Token is missing required scope(s): ${missing.join(" ")}` });
         return;
       }
     } catch (error) {

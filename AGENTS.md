@@ -34,9 +34,9 @@ before working there.
   dependencies (the venv under `channel/venv` is untracked local clutter; the
   Docker image installs nothing).
 - The `network/` subproject is TypeScript on Node.js (npm; see its AGENTS.md).
-  Its API types are generated from `network/openapi.yaml` into
-  `network/src/generated/` at install/build time — gitignored and always
-  regenerated; never edit or commit that directory.
+  Its API types and auth-scope map are generated from `network/openapi.yaml`
+  into `network/src/generated/` at install/build time — gitignored and
+  always regenerated; never edit or commit that directory.
 - `ffmpeg` and `ffprobe` are hard requirements. They exist inside the Docker
   image (`channel/Dockerfile`) and are installed into the devcontainer via the
   `ffmpeg-apt-get` feature in `.devcontainer/devcontainer.json` (takes effect
