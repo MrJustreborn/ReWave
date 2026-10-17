@@ -26,5 +26,11 @@
 	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
 	// "remoteUser": "root"
 
-	"mounts": []
+	"mounts": [
+		"source=${localEnv:HOME}/.config/opencode/opencode.json,target=/home/codespace/.config/opencode/opencode.json,type=bind,readonly",
+		"source=${localEnv:HOME}/.config/opencode/opencode-ntfy.json,target=/home/codespace/.config/opencode/opencode-ntfy.json,type=bind,readonly",
+		
+		"source=${localEnv:HOME}/.ssh/id_ed25519,target=/home/codespace/.ssh/id_ed25519,type=bind,readonly",
+		"source=${localEnv:HOME}/.ssh/known_hosts,target=/home/codespace/.ssh/known_hosts,type=bind,readonly"
+	]
 }
