@@ -26,6 +26,7 @@ import (
 
 	"rewave/network/internal/apperr"
 	"rewave/network/internal/auth"
+	"rewave/network/internal/channel"
 	"rewave/network/internal/config"
 	"rewave/network/internal/db"
 	"rewave/network/internal/httpapi"
@@ -78,7 +79,7 @@ func serve() error {
 		slog.Info("applied database migrations", "migrations", applied)
 	}
 
-	handler, authenticator, err := buildHandler(cfg)
+	handler, authenticator, err := buildHandler(cfg, d)
 	if err != nil {
 		return err
 	}
@@ -117,12 +118,13 @@ func serve() error {
 // buildHandler assembles the HTTP handler: CORS (outermost, so error
 // responses carry CORS headers too), then authentication, then the
 // generated OpenAPI routes, with /healthz outside the API.
-func buildHandler(cfg config.Config) (http.Handler, *auth.Auth, error) {
+func buildHandler(cfg config.Config, d *sql.DB) (http.Handler, *auth.Auth, error) {
 	authenticator, err := auth.New(cfg)
 	if err != nil {
 		return nil, nil, err
 	}
-	api := gen.HandlerWithOptions(httpapi.New(), gen.StdHTTPServerOptions{
+	channelService := channel.NewService(channel.NewStore(d))
+	api := gen.HandlerWithOptions(httpapi.New(channelService), gen.StdHTTPServerOptions{
 		// Path/query parameter validation failures follow the openapi
 		// Error schema like every other error response.
 		ErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, err error) {
