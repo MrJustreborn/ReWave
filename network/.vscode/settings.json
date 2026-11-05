@@ -1,0 +1,10 @@
+{
+  "rest-client.environmentVariables": {
+    "$shared": {
+      "baseUrl": "http://localhost:8080",
+      "token": "",
+      "channelId": "3f6bd1c2-9c5e-4d20-8a3d-6f2a5c9e7b11",
+      "videoId": "5d1f9e3a-1b64-4c0a-9d2f-7a6e4b8c1d20"
+    }
+  }
+}

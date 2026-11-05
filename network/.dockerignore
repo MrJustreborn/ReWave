@@ -1,6 +1,9 @@
 .git
-node_modules
-dist
+.env
+bin
 data
-src/generated
 *.log
+.vscode
+requests
+examples
+internal/httpapi/gen

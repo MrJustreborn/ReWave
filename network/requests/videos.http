@@ -1,0 +1,39 @@
+### ReWave network — media library (video pool, ad-break ingestion).
+### Variable sources: requests/http-client.env.json (JetBrains) or .vscode/settings.json (VS Code REST Client).
+### Bodies are copies of the example objects in openapi.yaml — keep them in sync.
+
+### List the media pool — GET /v1/videos (scope: videos:read)
+# Expected: 200 with VideoList (one processed and one pending video in the
+# openapi example); 501 while stubbed
+GET {{baseUrl}}/v1/videos
+
+### List only processed videos — GET /v1/videos?processed=true (scope: videos:read)
+# Expected: 200, videos filtered by ingestion state; 501 while stubbed
+GET {{baseUrl}}/v1/videos?processed=true
+
+### Add a video — POST /v1/videos (scope: videos:write)
+# Triggers ad-break ingestion asynchronously; the response has processed=false —
+# poll the video detail to watch the ad-break points fill in.
+# Expected: 201, Location: /v1/videos/{id}, body: Video with processed=false;
+# 409 if the path already exists; 501 while stubbed
+POST {{baseUrl}}/v1/videos HTTP/1.1
+Content-Type: application/json
+
+{
+  "path": "/media-pool/movies/new-movie.mp4",
+  "title": "New Movie",
+  "tags": [
+    "movie"
+  ]
+}
+
+### Video detail — GET /v1/videos/{videoId} (scope: videos:read)
+# Expected: 200 with Video including detected adBreaks; 404 unknown id;
+# 501 while stubbed
+GET {{baseUrl}}/v1/videos/{{videoId}}
+
+### Remove a video — DELETE /v1/videos/{videoId} (scope: videos:write)
+# Removes the video and its ad-break points; already resolved playlists are
+# not rewritten.
+# Expected: 204; 404 unknown id; 501 while stubbed
+DELETE {{baseUrl}}/v1/videos/{{videoId}}

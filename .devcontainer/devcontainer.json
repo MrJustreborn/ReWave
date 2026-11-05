@@ -9,6 +9,9 @@
 	"features": {
 		"ghcr.io/devcontainer-community/devcontainer-features/opencode.ai:1": {},
 		"ghcr.io/devcontainers-extra/features/ffmpeg-apt-get:1": {},
+		"ghcr.io/devcontainers/features/go:1": {
+			"version": "latest"
+		},
 		"ghcr.io/rocker-org/devcontainer-features/apt-packages:1": {
 			"packages": "screen"
 		}

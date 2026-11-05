@@ -1,0 +1,131 @@
+### ReWave network — channel registry, lifecycle, watching and resolved playlists.
+### Variable sources: requests/http-client.env.json (JetBrains) or .vscode/settings.json (VS Code REST Client).
+### Bodies are copies of the example objects in openapi.yaml — keep them in sync.
+### With the local default AUTH_MODE=off no Authorization header is needed.
+
+### List channels — GET /v1/channels (scope: channels:read)
+# Expected: 200 with ChannelList (see openapi example "channelList"); 501 while stubbed
+GET {{baseUrl}}/v1/channels
+
+### Create a channel — POST /v1/channels (scope: channels:write)
+# Expected: 201, Location: /v1/channels/{id}, body: Channel with status "created";
+# 409 if the name already exists; 501 while stubbed
+POST {{baseUrl}}/v1/channels HTTP/1.1
+Content-Type: application/json
+
+{
+  "name": "channel-1",
+  "type": "movies",
+  "contentPool": {
+    "videoIds": [
+      "5d1f9e3a-1b64-4c0a-9d2f-7a6e4b8c1d20"
+    ],
+    "tags": [
+      "movie"
+    ]
+  },
+  "schedule": {
+    "templates": {
+      "default": [
+        {
+          "start": "00:00",
+          "end": "06:00",
+          "tags": []
+        },
+        {
+          "start": "20:15",
+          "end": "22:30",
+          "tags": [
+            "movie",
+            "primetime"
+          ]
+        }
+      ]
+    },
+    "days": {
+      "monday": "default",
+      "tuesday": "default",
+      "wednesday": "default",
+      "thursday": "default",
+      "friday": "default",
+      "saturday": "default",
+      "sunday": "default"
+    }
+  }
+}
+
+### Channel detail — GET /v1/channels/{channelId} (scope: channels:read)
+# Expected: 200 with Channel; 404 for an unknown id; 501 while stubbed
+GET {{baseUrl}}/v1/channels/{{channelId}}
+
+### Replace a channel definition — PUT /v1/channels/{channelId} (scope: channels:write)
+# Expected: 200 with the updated Channel; 404 unknown id; 409 duplicate name;
+# 501 while stubbed. Takes effect on the next playlist resolution; a running
+# channel is not restarted.
+PUT {{baseUrl}}/v1/channels/{{channelId}} HTTP/1.1
+Content-Type: application/json
+
+{
+  "name": "channel-1",
+  "type": "movies",
+  "contentPool": {
+    "tags": [
+      "movie"
+    ]
+  },
+  "schedule": {
+    "templates": {
+      "default": [
+        {
+          "start": "06:00",
+          "end": "20:00",
+          "tags": [
+            "movie"
+          ]
+        }
+      ]
+    },
+    "days": {
+      "monday": "default",
+      "tuesday": "default",
+      "wednesday": "default",
+      "thursday": "default",
+      "friday": "default",
+      "saturday": "default",
+      "sunday": "default"
+    }
+  }
+}
+
+### Remove a channel — DELETE /v1/channels/{channelId} (scope: channels:write)
+# Expected: 204; stops the container first if running; 404 unknown id; 501 while stubbed
+DELETE {{baseUrl}}/v1/channels/{{channelId}}
+
+### Start a channel — POST /v1/channels/{channelId}/start (scope: channels:write)
+# Idempotent; status changes are asynchronous — poll the channel detail.
+# Expected: 200 with the current Channel; 404 unknown id; 501 while stubbed
+POST {{baseUrl}}/v1/channels/{{channelId}}/start
+
+### Stop a channel — POST /v1/channels/{channelId}/stop (scope: channels:write)
+# Idempotent; status changes are asynchronous — poll the channel detail.
+# Expected: 200 with the current Channel; 404 unknown id; 501 while stubbed
+POST {{baseUrl}}/v1/channels/{{channelId}}/stop
+
+### Resolved playlist — GET /v1/channels/{channelId}/playlist (scope: channels:read)
+# The exact payload the network pushes to the channel; empty slots array if
+# nothing has been resolved yet.
+# Expected: 200 with Playlist (see openapi example "playlist"); 404 unknown id;
+# 501 while stubbed
+GET {{baseUrl}}/v1/channels/{{channelId}}/playlist
+
+### Viewer heartbeat — POST /v1/channels/{channelId}/watch (scope: watch)
+# tv-ui only: an on-demand channel starts on the first heartbeat and keeps
+# running for a keep-alive window after the last viewer leaves.
+# Expected: 200 with WatchResponse (viewers, status, keepAliveUntil);
+# 404 unknown id; 501 while stubbed
+POST {{baseUrl}}/v1/channels/{{channelId}}/watch HTTP/1.1
+Content-Type: application/json
+
+{
+  "viewerId": "tvui-8f3c1a2b"
+}
