@@ -3,3 +3,5 @@ dist/
 src/generated/
 data/
 *.log
+.env
+requests/http-client.private.env.json

@@ -12,13 +12,14 @@
     "postinstall": "npm run generate",
     "predev": "npm run generate",
     "dev": "tsx watch src/main.ts",
-    "prebuild": "npm run generate",
+    "prebuild": "npm run generate && npm run check:architecture",
     "build": "tsc -p tsconfig.json && cp -r src/db/migrations dist/db/migrations",
-    "typecheck": "npm run generate && tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.scripts.json",
+    "typecheck": "npm run generate && npm run check:architecture && tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.scripts.json",
     "start": "node dist/main.js",
     "migrate": "tsx src/db/migrate.ts",
     "migrate:status": "tsx src/db/migrate.ts status",
-    "adseeker": "tsx src/ingest/adseeker-cli.ts"
+    "adseeker": "tsx src/modules/media/infrastructure/ffmpeg/adseeker-cli.ts",
+    "check:architecture": "tsx scripts/check-architecture.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.1",

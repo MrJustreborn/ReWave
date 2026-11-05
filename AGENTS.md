@@ -29,7 +29,8 @@ before working there.
 
 - There is no test suite, linter, or CI anywhere in this repo; don't go
   looking for test commands. The only build/typecheck entry points are the
-  npm scripts in `network/` (`npm run typecheck`, `npm run build`).
+  npm scripts in `network/` (`npm run typecheck`, `npm run build` — both also
+  run the module-boundary checker `npm run check:architecture`).
 - Python code in `channel/` is stdlib-only: no `requirements.txt`, no pip
   dependencies (the venv under `channel/venv` is untracked local clutter; the
   Docker image installs nothing).
@@ -72,7 +73,8 @@ before working there.
   install/build (gitignored, always regenerated); the `predev`/`prebuild`/
   `typecheck` scripts run the generation themselves, so nothing depends on
   `postinstall` running (npm's install-scripts policy may skip it).
-- Ad-break detection is `network/src/ingest/adseeker.ts` (ported from the
+- Ad-break detection is
+  `network/src/modules/media/infrastructure/ffmpeg/adseeker.ts` (ported from the
   former Python prototype; output parity was verified before deleting it).
   Run it from `network/` via
   `npm run adseeker -- <video> [--min-duration <seconds>]`.
@@ -80,6 +82,10 @@ before working there.
   native install scripts; hence the `>=24` engine pin).
 - Migrations are forward-only with checksum validation: never edit an
   already-applied `network/src/db/migrations/` file — add a new numbered one.
+- `network/` follows an onion/DDD-module layout under `network/src/modules/`
+  (media, channel, scheduling, watching); module boundaries are enforced by
+  `npm run check:architecture` (runs within `typecheck`/`build`). See
+  `network/README.md` ("Architecture") before placing new code.
 - `network/examples/` is not consumed by any code yet (it sketches a resolved
   playlist and per-day schedule templates for the future manager).
 

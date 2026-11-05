@@ -1,8 +1,8 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { createRemoteJWKSet, jwtVerify } from "jose";
-import type { Config } from "./config.js";
-import { SCOPES_BY_OPERATION } from "./generated/security.js";
-import type { RouteConfig } from "./routes/route-config.js";
+import type { Config } from "../config.js";
+import { SCOPES_BY_OPERATION } from "../generated/security.js";
+import type { RouteConfig } from "../shared/index.js";
 
 function tokenScopes(scope: unknown): string[] {
   if (typeof scope === "string") {
