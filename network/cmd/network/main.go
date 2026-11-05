@@ -24,8 +24,12 @@ import (
 	"syscall"
 	"time"
 
+	"rewave/network/internal/apperr"
+	"rewave/network/internal/auth"
 	"rewave/network/internal/config"
 	"rewave/network/internal/db"
+	"rewave/network/internal/httpapi"
+	"rewave/network/internal/httpapi/gen"
 )
 
 func main() {
@@ -74,9 +78,14 @@ func serve() error {
 		slog.Info("applied database migrations", "migrations", applied)
 	}
 
+	handler, authenticator, err := buildHandler(cfg)
+	if err != nil {
+		return err
+	}
+
 	srv := &http.Server{
 		Addr:              net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port)),
-		Handler:           buildHandler(),
+		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
@@ -91,6 +100,7 @@ func serve() error {
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return err
 		}
+		authenticator.Stop()
 		return nil
 	case sig := <-stop:
 		slog.Info("shutting down", "signal", sig.String())
@@ -99,20 +109,33 @@ func serve() error {
 		if err := srv.Shutdown(shutdownCtx); err != nil {
 			return err
 		}
+		authenticator.Stop()
 		return d.Close()
 	}
 }
 
-// buildHandler assembles the HTTP handler. Routes live in
-// internal/httpapi; this indirection keeps the wiring replaceable while
-// the API server is built out.
-func buildHandler() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
+// buildHandler assembles the HTTP handler: CORS (outermost, so error
+// responses carry CORS headers too), then authentication, then the
+// generated OpenAPI routes, with /healthz outside the API.
+func buildHandler(cfg config.Config) (http.Handler, *auth.Auth, error) {
+	authenticator, err := auth.New(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+	api := gen.HandlerWithOptions(httpapi.New(), gen.StdHTTPServerOptions{
+		// Path/query parameter validation failures follow the openapi
+		// Error schema like every other error response.
+		ErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, err error) {
+			httpapi.WriteError(w, apperr.Validation(err.Error()))
+		},
+	})
+	root := http.NewServeMux()
+	root.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintln(w, `{"status":"ok"}`)
 	})
-	return mux
+	root.Handle("/", authenticator.Wrap(api))
+	return httpapi.CORS(root), authenticator, nil
 }
 
 func migrateCommand() error {
