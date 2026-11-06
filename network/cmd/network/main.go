@@ -31,6 +31,7 @@ import (
 	"rewave/network/internal/db"
 	"rewave/network/internal/httpapi"
 	"rewave/network/internal/httpapi/gen"
+	"rewave/network/internal/media"
 )
 
 func main() {
@@ -124,7 +125,8 @@ func buildHandler(cfg config.Config, d *sql.DB) (http.Handler, *auth.Auth, error
 		return nil, nil, err
 	}
 	channelService := channel.NewService(channel.NewStore(d))
-	api := gen.HandlerWithOptions(httpapi.New(channelService), gen.StdHTTPServerOptions{
+	mediaService := media.NewService(media.NewStore(d), media.FFmpegDetector{})
+	api := gen.HandlerWithOptions(httpapi.New(channelService, mediaService), gen.StdHTTPServerOptions{
 		// Path/query parameter validation failures follow the openapi
 		// Error schema like every other error response.
 		ErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, err error) {

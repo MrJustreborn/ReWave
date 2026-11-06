@@ -6,6 +6,7 @@ import (
 	"rewave/network/internal/apperr"
 	"rewave/network/internal/channel"
 	"rewave/network/internal/httpapi/gen"
+	"rewave/network/internal/media"
 )
 
 // Server implements the generated OpenAPI ServerInterface. Operations
@@ -13,11 +14,12 @@ import (
 // mapper; implementing an operation means filling in the method below.
 type Server struct {
 	channels *channel.Service
+	videos   *media.Service
 }
 
 // New creates the API server.
-func New(channels *channel.Service) *Server {
-	return &Server{channels: channels}
+func New(channels *channel.Service, videos *media.Service) *Server {
+	return &Server{channels: channels, videos: videos}
 }
 
 var _ gen.ServerInterface = (*Server)(nil)
@@ -141,21 +143,69 @@ func (s *Server) WatchChannel(w http.ResponseWriter, _ *http.Request, _ gen.Chan
 }
 
 // ListVideos (GET /v1/videos).
-func (s *Server) ListVideos(w http.ResponseWriter, _ *http.Request, _ gen.ListVideosParams) {
-	notImplemented(w, "listVideos")
+func (s *Server) ListVideos(w http.ResponseWriter, r *http.Request, params gen.ListVideosParams) {
+	var filter *media.Filter
+	if params.Processed != nil {
+		filter = &media.Filter{Processed: *params.Processed}
+	}
+	videos, err := s.videos.List(r.Context(), filter)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	dtos := make([]gen.Video, len(videos))
+	for i, v := range videos {
+		dto, err := videoToAPI(v)
+		if err != nil {
+			WriteError(w, err)
+			return
+		}
+		dtos[i] = dto
+	}
+	WriteJSON(w, http.StatusOK, gen.VideoList{Videos: dtos})
 }
 
 // AddVideo (POST /v1/videos).
-func (s *Server) AddVideo(w http.ResponseWriter, _ *http.Request) {
-	notImplemented(w, "addVideo")
+func (s *Server) AddVideo(w http.ResponseWriter, r *http.Request) {
+	var dto gen.NewVideo
+	if err := decodeJSON(r, &dto); err != nil {
+		WriteError(w, err)
+		return
+	}
+	added, err := s.videos.Add(r.Context(), addVideoCommandFromAPI(dto))
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	body, err := videoToAPI(added)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	w.Header().Set("Location", "/v1/videos/"+added.ID)
+	WriteJSON(w, http.StatusCreated, body)
 }
 
 // DeleteVideo (DELETE /v1/videos/{videoId}).
-func (s *Server) DeleteVideo(w http.ResponseWriter, _ *http.Request, _ gen.VideoId) {
-	notImplemented(w, "deleteVideo")
+func (s *Server) DeleteVideo(w http.ResponseWriter, r *http.Request, videoId gen.VideoId) {
+	if err := s.videos.Delete(r.Context(), videoId.String()); err != nil {
+		WriteError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // GetVideo (GET /v1/videos/{videoId}).
-func (s *Server) GetVideo(w http.ResponseWriter, _ *http.Request, _ gen.VideoId) {
-	notImplemented(w, "getVideo")
+func (s *Server) GetVideo(w http.ResponseWriter, r *http.Request, videoId gen.VideoId) {
+	v, err := s.videos.Get(r.Context(), videoId.String())
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	dto, err := videoToAPI(v)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, dto)
 }

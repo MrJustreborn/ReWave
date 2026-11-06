@@ -16,6 +16,7 @@ import (
 	"rewave/network/internal/channel"
 	"rewave/network/internal/db"
 	"rewave/network/internal/httpapi/gen"
+	"rewave/network/internal/media"
 )
 
 // newTestServer builds the full API handler stack (no auth) over a
@@ -30,8 +31,20 @@ func newTestServer(t *testing.T) http.Handler {
 	if _, err := db.ApplyMigrations(context.Background(), d); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	service := channel.NewService(channel.NewStore(d))
-	return CORS(gen.Handler(New(service)))
+	channelService := channel.NewService(channel.NewStore(d))
+	mediaService := media.NewService(media.NewStore(d), fakeDetector{})
+	return CORS(gen.Handler(New(channelService, mediaService)))
+}
+
+// fakeDetector is a deterministic media.Detector for tests.
+type fakeDetector struct{}
+
+func (fakeDetector) ProbeDuration(_ context.Context, _ string) (float64, error) {
+	return 8100, nil
+}
+
+func (fakeDetector) DetectAdBreaks(_ context.Context, _ string, _ float64) ([]float64, error) {
+	return []float64{3900}, nil
 }
 
 func do(t *testing.T, handler http.Handler, method, path, body string) *httptest.ResponseRecorder {

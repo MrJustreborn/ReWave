@@ -11,6 +11,7 @@ import (
 	"rewave/network/internal/apperr"
 	"rewave/network/internal/channel"
 	"rewave/network/internal/httpapi/gen"
+	"rewave/network/internal/media"
 )
 
 // definitionFromAPI converts and validates a ChannelDefinition DTO into
@@ -95,4 +96,37 @@ func decodeJSON(r *http.Request, v any) error {
 		return apperr.Validation("invalid JSON request body: " + err.Error())
 	}
 	return nil
+}
+
+// addVideoCommandFromAPI converts a NewVideo DTO into the add command.
+func addVideoCommandFromAPI(dto gen.NewVideo) media.AddVideo {
+	cmd := media.AddVideo{Path: dto.Path}
+	if dto.Title != nil {
+		cmd.Title = *dto.Title
+	}
+	if dto.Tags != nil {
+		cmd.Tags = *dto.Tags
+	}
+	return cmd
+}
+
+// videoToAPI converts a domain video into the Video DTO.
+func videoToAPI(v media.Video) (gen.Video, error) {
+	id, err := uuid.Parse(v.ID)
+	if err != nil {
+		return gen.Video{}, fmt.Errorf("video id %q is not a UUID", v.ID)
+	}
+	breaks := make([]gen.AdBreak, len(v.AdBreaks))
+	for i, br := range v.AdBreaks {
+		breaks[i] = gen.AdBreak{Position: float32(br.Position)}
+	}
+	return gen.Video{
+		Id:        id,
+		Path:      v.Path,
+		Title:     v.Title,
+		Duration:  float32(v.Duration),
+		Tags:      v.Tags,
+		Processed: v.Processed,
+		AdBreaks:  breaks,
+	}, nil
 }

@@ -70,7 +70,7 @@ func applyMigrations(ctx context.Context, d *sql.DB, fsys fs.FS) ([]string, erro
 		if err != nil {
 			return nil, err
 		}
-		err = withTransaction(ctx, d, func(ctx context.Context, tx *sql.Tx) error {
+		err = WithTransaction(ctx, d, func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, string(content)); err != nil {
 				return fmt.Errorf("migration %s failed: %w", file, err)
 			}
@@ -234,18 +234,4 @@ func listMigrationFiles(fsys fs.FS) ([]string, error) {
 func checksumOf(content []byte) string {
 	sum := sha256.Sum256(content)
 	return hex.EncodeToString(sum[:])
-}
-
-func withTransaction(ctx context.Context, d *sql.DB, fn func(ctx context.Context, tx *sql.Tx) error) error {
-	tx, err := d.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	if err := fn(ctx, tx); err != nil {
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			return fmt.Errorf("%w (rollback failed: %v)", err, rollbackErr)
-		}
-		return err
-	}
-	return tx.Commit()
 }
