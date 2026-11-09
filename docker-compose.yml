@@ -4,6 +4,10 @@ services:
   channel-1:
     build:
       context: ./channel
+    # The network creates channel containers from this image
+    # (CHANNEL_IMAGE). Build/tag it:
+    #   docker compose build channel-1
+    image: rewave-channel
     container_name: channel-1
     network_mode: "host"
     restart: unless-stopped
@@ -20,6 +24,9 @@ services:
       - "8080:8080"
     environment:
       - AUTH_MODE=off
+      # Host-side path of the media pool — the bind source the network
+      # uses when it starts channel containers.
+      - MEDIA_HOST_PATH=${PWD}/sample-media
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./sample-media:/media-pool:ro

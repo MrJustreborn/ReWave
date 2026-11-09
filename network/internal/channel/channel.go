@@ -229,10 +229,12 @@ func (c Channel) Started() Channel {
 	return c
 }
 
-// Stopped returns the channel in the stopped state; only a running
-// channel transitions (idempotent).
+// Stopped returns the channel in the stopped state. Running and error
+// channels transition (an error channel that stops cleanly is back to
+// stopped — the container was removed); stopping is idempotent
+// otherwise.
 func (c Channel) Stopped() Channel {
-	if c.Status != StatusRunning {
+	if c.Status != StatusRunning && c.Status != StatusError {
 		return c
 	}
 	c.Status = StatusStopped

@@ -32,6 +32,7 @@ import (
 	"rewave/network/internal/httpapi"
 	"rewave/network/internal/httpapi/gen"
 	"rewave/network/internal/media"
+	"rewave/network/internal/scheduling"
 )
 
 func main() {
@@ -124,9 +125,20 @@ func buildHandler(cfg config.Config, d *sql.DB) (http.Handler, *auth.Auth, error
 	if err != nil {
 		return nil, nil, err
 	}
-	channelService := channel.NewService(channel.NewStore(d))
-	mediaService := media.NewService(media.NewStore(d), media.FFmpegDetector{})
-	api := gen.HandlerWithOptions(httpapi.New(channelService, mediaService), gen.StdHTTPServerOptions{
+	channelStore := channel.NewStore(d)
+	mediaStore := media.NewStore(d)
+	mediaService := media.NewService(mediaStore, media.FFmpegDetector{})
+	schedulingService := scheduling.NewService(channelStore, mediaStore)
+	runtime, err := channel.NewDockerRuntime(channel.DockerRuntimeConfig{
+		DockerHost: "unix://" + cfg.DockerSocket,
+		Image:      cfg.ChannelImage,
+		MediaBind:  cfg.MediaHostPath + ":" + cfg.MediaRoot + ":ro",
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	channelService := channel.NewService(channelStore, runtime, schedulingService)
+	api := gen.HandlerWithOptions(httpapi.New(channelService, mediaService, schedulingService), gen.StdHTTPServerOptions{
 		// Path/query parameter validation failures follow the openapi
 		// Error schema like every other error response.
 		ErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, err error) {

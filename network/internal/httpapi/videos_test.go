@@ -12,11 +12,11 @@ import (
 // waitForProcessed polls the video detail until ingestion has marked it
 // processed (the fake detector resolves instantly, but the ingestion
 // runs on a background goroutine).
-func waitForProcessed(t *testing.T, handler http.Handler, videoID string) gen.Video {
+func waitForProcessed(t *testing.T, env *testEnv, videoID string) gen.Video {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)
 	for {
-		rec := do(t, handler, http.MethodGet, "/v1/videos/"+videoID, "")
+		rec := do(t, env.handler, http.MethodGet, "/v1/videos/"+videoID, "")
 		if rec.Code != http.StatusOK {
 			t.Fatalf("get video: %d %s", rec.Code, rec.Body.String())
 		}
@@ -35,10 +35,10 @@ func waitForProcessed(t *testing.T, handler http.Handler, videoID string) gen.Vi
 }
 
 func TestVideosFlow(t *testing.T) {
-	handler := newTestServer(t)
+	env := newTestServer(t)
 
 	// Add → 201, processed=false, title defaulted from the file name.
-	rec := do(t, handler, http.MethodPost, "/v1/videos",
+	rec := do(t, env.handler, http.MethodPost, "/v1/videos",
 		`{"path": "/media-pool/movies/new-movie.mp4", "tags": ["movie"]}`)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("add: %d %s", rec.Code, rec.Body.String())
@@ -53,7 +53,7 @@ func TestVideosFlow(t *testing.T) {
 	if added.Processed || len(added.AdBreaks) != 0 {
 		t.Fatalf("added must be pending: %+v", added)
 	}
-	if added.Duration != 8100 {
+	if added.Duration != 1800 {
 		t.Fatalf("duration from probe: %v", added.Duration)
 	}
 	if rec.Header().Get("Location") != "/v1/videos/"+added.Id.String() {
@@ -61,19 +61,19 @@ func TestVideosFlow(t *testing.T) {
 	}
 
 	// Duplicate path → 409.
-	rec = do(t, handler, http.MethodPost, "/v1/videos", `{"path": "/media-pool/movies/new-movie.mp4"}`)
+	rec = do(t, env.handler, http.MethodPost, "/v1/videos", `{"path": "/media-pool/movies/new-movie.mp4"}`)
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("duplicate: %d", rec.Code)
 	}
 
 	// Async ingestion fills in the ad breaks.
-	processed := waitForProcessed(t, handler, added.Id.String())
-	if len(processed.AdBreaks) != 1 || processed.AdBreaks[0].Position != 3900 {
+	processed := waitForProcessed(t, env, added.Id.String())
+	if len(processed.AdBreaks) != 1 || processed.AdBreaks[0].Position != 900 {
 		t.Fatalf("processed breaks: %+v", processed.AdBreaks)
 	}
 
 	// List with filter.
-	rec = do(t, handler, http.MethodGet, "/v1/videos?processed=false", "")
+	rec = do(t, env.handler, http.MethodGet, "/v1/videos?processed=false", "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("list unprocessed: %d %s", rec.Code, rec.Body.String())
 	}
@@ -85,7 +85,7 @@ func TestVideosFlow(t *testing.T) {
 		t.Fatalf("unprocessed list should be empty: %+v", list)
 	}
 
-	rec = do(t, handler, http.MethodGet, "/v1/videos", "")
+	rec = do(t, env.handler, http.MethodGet, "/v1/videos", "")
 	if err := json.Unmarshal(rec.Body.Bytes(), &list); err != nil {
 		t.Fatal(err)
 	}
@@ -94,15 +94,15 @@ func TestVideosFlow(t *testing.T) {
 	}
 
 	// Unknown video → 404; delete → 204 → 404.
-	rec = do(t, handler, http.MethodGet, "/v1/videos/00000000-0000-4000-8000-000000000000", "")
+	rec = do(t, env.handler, http.MethodGet, "/v1/videos/00000000-0000-4000-8000-000000000000", "")
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("unknown: %d", rec.Code)
 	}
-	rec = do(t, handler, http.MethodDelete, "/v1/videos/"+added.Id.String(), "")
+	rec = do(t, env.handler, http.MethodDelete, "/v1/videos/"+added.Id.String(), "")
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("delete: %d", rec.Code)
 	}
-	rec = do(t, handler, http.MethodGet, "/v1/videos/"+added.Id.String(), "")
+	rec = do(t, env.handler, http.MethodGet, "/v1/videos/"+added.Id.String(), "")
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("after delete: %d", rec.Code)
 	}

@@ -9,7 +9,9 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -17,11 +19,13 @@ import (
 	"rewave/network/internal/db"
 	"rewave/network/internal/httpapi/gen"
 	"rewave/network/internal/media"
+	"rewave/network/internal/scheduling"
 )
 
 // newTestServer builds the full API handler stack (no auth) over a
-// throwaway SQLite database.
-func newTestServer(t *testing.T) http.Handler {
+// throwaway SQLite database. The clock is fixed (Monday, 2026-11-09
+// 10:00 UTC) so schedule resolution is deterministic.
+func newTestServer(t *testing.T) *testEnv {
 	t.Helper()
 	d, err := db.Open(filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {
@@ -31,20 +35,58 @@ func newTestServer(t *testing.T) http.Handler {
 	if _, err := db.ApplyMigrations(context.Background(), d); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	channelService := channel.NewService(channel.NewStore(d))
-	mediaService := media.NewService(media.NewStore(d), fakeDetector{})
-	return CORS(gen.Handler(New(channelService, mediaService)))
+	fixedNow := func() time.Time { return time.Date(2026, 11, 9, 10, 0, 0, 0, time.UTC) }
+	channelStore := channel.NewStore(d)
+	mediaStore := media.NewStore(d)
+	mediaService := media.NewService(mediaStore, fakeDetector{}, fixedNow)
+	schedulingService := scheduling.NewService(channelStore, mediaStore, fixedNow)
+	runtime := &fakeChannelRuntime{}
+	channelService := channel.NewService(channelStore, runtime, schedulingService, fixedNow)
+	return &testEnv{
+		handler:  CORS(gen.Handler(New(channelService, mediaService, schedulingService))),
+		runtime:  runtime,
+		fixedNow: fixedNow,
+	}
+}
+
+// testEnv bundles the handler with the test doubles the lifecycle tests
+// need to inspect.
+type testEnv struct {
+	handler  http.Handler
+	runtime  *fakeChannelRuntime
+	fixedNow func() time.Time
+}
+
+// fakeChannelRuntime records lifecycle calls.
+type fakeChannelRuntime struct {
+	mu        sync.Mutex
+	started   []string
+	stopCalls int
+}
+
+func (f *fakeChannelRuntime) EnsureRunning(_ context.Context, _ channel.Channel, playlistEnv string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.started = append(f.started, playlistEnv)
+	return nil
+}
+
+func (f *fakeChannelRuntime) Stop(context.Context, channel.Channel) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.stopCalls++
+	return nil
 }
 
 // fakeDetector is a deterministic media.Detector for tests.
 type fakeDetector struct{}
 
 func (fakeDetector) ProbeDuration(_ context.Context, _ string) (float64, error) {
-	return 8100, nil
+	return 1800, nil
 }
 
 func (fakeDetector) DetectAdBreaks(_ context.Context, _ string, _ float64) ([]float64, error) {
-	return []float64{3900}, nil
+	return []float64{900}, nil
 }
 
 func do(t *testing.T, handler http.Handler, method, path, body string) *httptest.ResponseRecorder {
@@ -83,10 +125,10 @@ const channelDefinitionJSON = `{
 }`
 
 func TestChannelsCRUDFlow(t *testing.T) {
-	handler := newTestServer(t)
+	env := newTestServer(t)
 
 	// Empty list.
-	rec := do(t, handler, http.MethodGet, "/v1/channels", "")
+	rec := do(t, env.handler, http.MethodGet, "/v1/channels", "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("list: %d %s", rec.Code, rec.Body.String())
 	}
@@ -95,7 +137,7 @@ func TestChannelsCRUDFlow(t *testing.T) {
 	}
 
 	// Create → 201 + Location + body.
-	rec = do(t, handler, http.MethodPost, "/v1/channels", channelDefinitionJSON)
+	rec = do(t, env.handler, http.MethodPost, "/v1/channels", channelDefinitionJSON)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create: %d %s", rec.Code, rec.Body.String())
 	}
@@ -115,13 +157,13 @@ func TestChannelsCRUDFlow(t *testing.T) {
 	channelID := created.Id.String()
 
 	// Duplicate name → 409.
-	rec = do(t, handler, http.MethodPost, "/v1/channels", channelDefinitionJSON)
+	rec = do(t, env.handler, http.MethodPost, "/v1/channels", channelDefinitionJSON)
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("duplicate: %d %s", rec.Code, rec.Body.String())
 	}
 
 	// Get by id → 200 with full definition.
-	rec = do(t, handler, http.MethodGet, "/v1/channels/"+channelID, "")
+	rec = do(t, env.handler, http.MethodGet, "/v1/channels/"+channelID, "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("get: %d %s", rec.Code, rec.Body.String())
 	}
@@ -137,7 +179,7 @@ func TestChannelsCRUDFlow(t *testing.T) {
 	}
 
 	// Replace → 200, updated definition, same id.
-	rec = do(t, handler, http.MethodPut, "/v1/channels/"+channelID,
+	rec = do(t, env.handler, http.MethodPut, "/v1/channels/"+channelID,
 		`{"name": "channel-1", "type": "series"}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("replace: %d %s", rec.Code, rec.Body.String())
@@ -156,7 +198,7 @@ func TestChannelsCRUDFlow(t *testing.T) {
 		`{"name": "x", "type": "movies", "schedule": {"templates": {"d": []}, "days": {}}}`, // empty template
 		`not json`, // garbage body
 	} {
-		rec = do(t, handler, http.MethodPost, "/v1/channels", bad)
+		rec = do(t, env.handler, http.MethodPost, "/v1/channels", bad)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("bad body %q: %d %s", bad, rec.Code, rec.Body.String())
 		}
@@ -168,28 +210,32 @@ func TestChannelsCRUDFlow(t *testing.T) {
 
 	// Unknown channel → 404.
 	unknown := uuid.New().String()
-	rec = do(t, handler, http.MethodGet, "/v1/channels/"+unknown, "")
+	rec = do(t, env.handler, http.MethodGet, "/v1/channels/"+unknown, "")
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("unknown get: %d %s", rec.Code, rec.Body.String())
 	}
 
 	// Delete → 204, then 404.
-	rec = do(t, handler, http.MethodDelete, "/v1/channels/"+channelID, "")
+	rec = do(t, env.handler, http.MethodDelete, "/v1/channels/"+channelID, "")
 	if rec.Code != http.StatusNoContent || rec.Body.Len() != 0 {
 		t.Fatalf("delete: %d %q", rec.Code, rec.Body.String())
 	}
-	rec = do(t, handler, http.MethodGet, "/v1/channels/"+channelID, "")
+	rec = do(t, env.handler, http.MethodGet, "/v1/channels/"+channelID, "")
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("get after delete: %d", rec.Code)
 	}
 
-	// Unimplemented operations still answer 501.
-	rec = do(t, handler, http.MethodPost, fmt.Sprintf("/v1/channels/%s/start", unknown), "")
-	if rec.Code != http.StatusNotImplemented {
-		t.Fatalf("start: %d", rec.Code)
+	// Lifecycle on an unknown channel → 404; watch is still 501.
+	rec = do(t, env.handler, http.MethodPost, fmt.Sprintf("/v1/channels/%s/start", unknown), "")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("start unknown: %d", rec.Code)
 	}
-	rec = do(t, handler, http.MethodGet, fmt.Sprintf("/v1/channels/%s/playlist", unknown), "")
+	rec = do(t, env.handler, http.MethodGet, fmt.Sprintf("/v1/channels/%s/playlist", unknown), "")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("playlist unknown: %d", rec.Code)
+	}
+	rec = do(t, env.handler, http.MethodPost, fmt.Sprintf("/v1/channels/%s/watch", unknown), "")
 	if rec.Code != http.StatusNotImplemented {
-		t.Fatalf("playlist: %d", rec.Code)
+		t.Fatalf("watch: %d", rec.Code)
 	}
 }

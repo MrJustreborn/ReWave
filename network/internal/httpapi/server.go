@@ -7,19 +7,21 @@ import (
 	"rewave/network/internal/channel"
 	"rewave/network/internal/httpapi/gen"
 	"rewave/network/internal/media"
+	"rewave/network/internal/scheduling"
 )
 
 // Server implements the generated OpenAPI ServerInterface. Operations
 // whose use case is not implemented yet answer 501 via the error
 // mapper; implementing an operation means filling in the method below.
 type Server struct {
-	channels *channel.Service
-	videos   *media.Service
+	channels   *channel.Service
+	videos     *media.Service
+	scheduling *scheduling.Service
 }
 
 // New creates the API server.
-func New(channels *channel.Service, videos *media.Service) *Server {
-	return &Server{channels: channels, videos: videos}
+func New(channels *channel.Service, videos *media.Service, scheduling *scheduling.Service) *Server {
+	return &Server{channels: channels, videos: videos, scheduling: scheduling}
 }
 
 var _ gen.ServerInterface = (*Server)(nil)
@@ -123,18 +125,43 @@ func (s *Server) ReplaceChannel(w http.ResponseWriter, r *http.Request, channelI
 }
 
 // GetChannelPlaylist (GET /v1/channels/{channelId}/playlist).
-func (s *Server) GetChannelPlaylist(w http.ResponseWriter, _ *http.Request, _ gen.ChannelId) {
-	notImplemented(w, "getChannelPlaylist")
+func (s *Server) GetChannelPlaylist(w http.ResponseWriter, r *http.Request, channelId gen.ChannelId) {
+	playlist, err := s.scheduling.Stored(r.Context(), channelId.String())
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, playlistToAPI(playlist))
 }
 
 // StartChannel (POST /v1/channels/{channelId}/start).
-func (s *Server) StartChannel(w http.ResponseWriter, _ *http.Request, _ gen.ChannelId) {
-	notImplemented(w, "startChannel")
+func (s *Server) StartChannel(w http.ResponseWriter, r *http.Request, channelId gen.ChannelId) {
+	ch, err := s.channels.Start(r.Context(), channelId.String())
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	dto, err := channelToAPI(ch)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, dto)
 }
 
 // StopChannel (POST /v1/channels/{channelId}/stop).
-func (s *Server) StopChannel(w http.ResponseWriter, _ *http.Request, _ gen.ChannelId) {
-	notImplemented(w, "stopChannel")
+func (s *Server) StopChannel(w http.ResponseWriter, r *http.Request, channelId gen.ChannelId) {
+	ch, err := s.channels.Stop(r.Context(), channelId.String())
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	dto, err := channelToAPI(ch)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, dto)
 }
 
 // WatchChannel (POST /v1/channels/{channelId}/watch).

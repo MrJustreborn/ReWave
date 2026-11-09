@@ -12,6 +12,7 @@ import (
 	"rewave/network/internal/channel"
 	"rewave/network/internal/httpapi/gen"
 	"rewave/network/internal/media"
+	"rewave/network/internal/scheduling"
 )
 
 // definitionFromAPI converts and validates a ChannelDefinition DTO into
@@ -129,4 +130,29 @@ func videoToAPI(v media.Video) (gen.Video, error) {
 		Processed: v.Processed,
 		AdBreaks:  breaks,
 	}, nil
+}
+
+// playlistToAPI converts a resolved playlist into the Playlist DTO.
+func playlistToAPI(p scheduling.Playlist) gen.Playlist {
+	slots := make([]gen.ResolvedSlot, len(p.Slots))
+	for i, slot := range p.Slots {
+		entries := make([]gen.StreamEntry, len(slot.Stream))
+		for j, entry := range slot.Stream {
+			entries[j] = gen.StreamEntry{
+				File:     entry.File,
+				Type:     gen.StreamEntryType(entry.Type),
+				Duration: float32(entry.Duration),
+			}
+			if entry.StartOffset != "" {
+				offset := entry.StartOffset
+				entries[j].Start = &offset
+			}
+			if entry.EndOffset != "" {
+				offset := entry.EndOffset
+				entries[j].End = &offset
+			}
+		}
+		slots[i] = gen.ResolvedSlot{Start: slot.Start, End: slot.End, Stream: entries}
+	}
+	return gen.Playlist{Slots: slots}
 }

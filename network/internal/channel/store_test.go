@@ -35,7 +35,7 @@ func TestStoreCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("definition: %v", err)
 	}
-	svc := NewService(store, func() time.Time { return fixedNow })
+	svc := NewService(store, noopRuntime{}, fakePlaylistProvider{}, func() time.Time { return fixedNow })
 
 	created, err := svc.Create(ctx, def)
 	if err != nil {
@@ -125,3 +125,10 @@ func mustDefinition(t *testing.T, name, typ string) Definition {
 	}
 	return def
 }
+
+// noopRuntime satisfies Runtime without side effects (CRUD tests don't
+// exercise the lifecycle).
+type noopRuntime struct{}
+
+func (noopRuntime) EnsureRunning(context.Context, Channel, string) error { return nil }
+func (noopRuntime) Stop(context.Context, Channel) error                  { return nil }
