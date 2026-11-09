@@ -33,6 +33,7 @@ import (
 	"rewave/network/internal/httpapi/gen"
 	"rewave/network/internal/media"
 	"rewave/network/internal/scheduling"
+	"rewave/network/internal/watching"
 )
 
 func main() {
@@ -81,10 +82,16 @@ func serve() error {
 		slog.Info("applied database migrations", "migrations", applied)
 	}
 
-	handler, authenticator, err := buildHandler(cfg, d)
+	handler, authenticator, watchingService, err := buildHandler(cfg, d)
 	if err != nil {
 		return err
 	}
+
+	// Keep-alive expiry runs in the background and stops on-demand
+	// channels once the last viewer's window lapses.
+	loopCtx, stopLoop := context.WithCancel(context.Background())
+	defer stopLoop()
+	go watchingService.Run(loopCtx)
 
 	srv := &http.Server{
 		Addr:              net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port)),
@@ -119,11 +126,13 @@ func serve() error {
 
 // buildHandler assembles the HTTP handler: CORS (outermost, so error
 // responses carry CORS headers too), then authentication, then the
-// generated OpenAPI routes, with /healthz outside the API.
-func buildHandler(cfg config.Config, d *sql.DB) (http.Handler, *auth.Auth, error) {
+// generated OpenAPI routes, with /healthz outside the API. The
+// watching service (keep-alive expiry loop) is returned for lifecycle
+// management.
+func buildHandler(cfg config.Config, d *sql.DB) (http.Handler, *auth.Auth, *watching.Service, error) {
 	authenticator, err := auth.New(cfg)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	channelStore := channel.NewStore(d)
 	mediaStore := media.NewStore(d)
@@ -135,10 +144,11 @@ func buildHandler(cfg config.Config, d *sql.DB) (http.Handler, *auth.Auth, error
 		MediaBind:  cfg.MediaHostPath + ":" + cfg.MediaRoot + ":ro",
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	channelService := channel.NewService(channelStore, runtime, schedulingService)
-	api := gen.HandlerWithOptions(httpapi.New(channelService, mediaService, schedulingService), gen.StdHTTPServerOptions{
+	watchingService := watching.NewService(channelService, time.Duration(cfg.WatchKeepAliveSeconds)*time.Second)
+	api := gen.HandlerWithOptions(httpapi.New(channelService, mediaService, schedulingService, watchingService), gen.StdHTTPServerOptions{
 		// Path/query parameter validation failures follow the openapi
 		// Error schema like every other error response.
 		ErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, err error) {
@@ -151,7 +161,7 @@ func buildHandler(cfg config.Config, d *sql.DB) (http.Handler, *auth.Auth, error
 		fmt.Fprintln(w, `{"status":"ok"}`)
 	})
 	root.Handle("/", authenticator.Wrap(api))
-	return httpapi.CORS(root), authenticator, nil
+	return httpapi.CORS(root), authenticator, watchingService, nil
 }
 
 func migrateCommand() error {

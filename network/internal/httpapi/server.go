@@ -8,27 +8,23 @@ import (
 	"rewave/network/internal/httpapi/gen"
 	"rewave/network/internal/media"
 	"rewave/network/internal/scheduling"
+	"rewave/network/internal/watching"
 )
 
-// Server implements the generated OpenAPI ServerInterface. Operations
-// whose use case is not implemented yet answer 501 via the error
-// mapper; implementing an operation means filling in the method below.
+// Server implements the generated OpenAPI ServerInterface.
 type Server struct {
 	channels   *channel.Service
 	videos     *media.Service
 	scheduling *scheduling.Service
+	watching   *watching.Service
 }
 
 // New creates the API server.
-func New(channels *channel.Service, videos *media.Service, scheduling *scheduling.Service) *Server {
-	return &Server{channels: channels, videos: videos, scheduling: scheduling}
+func New(channels *channel.Service, videos *media.Service, scheduling *scheduling.Service, watching *watching.Service) *Server {
+	return &Server{channels: channels, videos: videos, scheduling: scheduling, watching: watching}
 }
 
 var _ gen.ServerInterface = (*Server)(nil)
-
-func notImplemented(w http.ResponseWriter, operation string) {
-	WriteError(w, apperr.NotImplemented(operation+" is not implemented yet"))
-}
 
 // ListChannels (GET /v1/channels).
 func (s *Server) ListChannels(w http.ResponseWriter, r *http.Request) {
@@ -165,8 +161,22 @@ func (s *Server) StopChannel(w http.ResponseWriter, r *http.Request, channelId g
 }
 
 // WatchChannel (POST /v1/channels/{channelId}/watch).
-func (s *Server) WatchChannel(w http.ResponseWriter, _ *http.Request, _ gen.ChannelId) {
-	notImplemented(w, "watchChannel")
+func (s *Server) WatchChannel(w http.ResponseWriter, r *http.Request, channelId gen.ChannelId) {
+	var request gen.WatchRequest
+	if err := decodeJSON(r, &request); err != nil {
+		WriteError(w, err)
+		return
+	}
+	if request.ViewerId == "" {
+		WriteError(w, apperr.Validation("viewerId must be a non-empty string"))
+		return
+	}
+	result, err := s.watching.Watch(r.Context(), channelId.String(), request.ViewerId)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, watchResultToAPI(result))
 }
 
 // ListVideos (GET /v1/videos).

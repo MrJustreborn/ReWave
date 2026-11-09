@@ -20,6 +20,7 @@ import (
 	"rewave/network/internal/httpapi/gen"
 	"rewave/network/internal/media"
 	"rewave/network/internal/scheduling"
+	"rewave/network/internal/watching"
 )
 
 // newTestServer builds the full API handler stack (no auth) over a
@@ -42,9 +43,11 @@ func newTestServer(t *testing.T) *testEnv {
 	schedulingService := scheduling.NewService(channelStore, mediaStore, fixedNow)
 	runtime := &fakeChannelRuntime{}
 	channelService := channel.NewService(channelStore, runtime, schedulingService, fixedNow)
+	watchingService := watching.NewService(channelService, 5*time.Minute, fixedNow)
 	return &testEnv{
-		handler:  CORS(gen.Handler(New(channelService, mediaService, schedulingService))),
+		handler:  CORS(gen.Handler(New(channelService, mediaService, schedulingService, watchingService))),
 		runtime:  runtime,
+		watching: watchingService,
 		fixedNow: fixedNow,
 	}
 }
@@ -54,6 +57,7 @@ func newTestServer(t *testing.T) *testEnv {
 type testEnv struct {
 	handler  http.Handler
 	runtime  *fakeChannelRuntime
+	watching *watching.Service
 	fixedNow func() time.Time
 }
 
@@ -225,7 +229,7 @@ func TestChannelsCRUDFlow(t *testing.T) {
 		t.Fatalf("get after delete: %d", rec.Code)
 	}
 
-	// Lifecycle on an unknown channel → 404; watch is still 501.
+	// Lifecycle on an unknown channel → 404 for every operation.
 	rec = do(t, env.handler, http.MethodPost, fmt.Sprintf("/v1/channels/%s/start", unknown), "")
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("start unknown: %d", rec.Code)
@@ -234,8 +238,9 @@ func TestChannelsCRUDFlow(t *testing.T) {
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("playlist unknown: %d", rec.Code)
 	}
-	rec = do(t, env.handler, http.MethodPost, fmt.Sprintf("/v1/channels/%s/watch", unknown), "")
-	if rec.Code != http.StatusNotImplemented {
-		t.Fatalf("watch: %d", rec.Code)
+	rec = do(t, env.handler, http.MethodPost, fmt.Sprintf("/v1/channels/%s/watch", unknown),
+		`{"viewerId":"v"}`)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("watch unknown: %d", rec.Code)
 	}
 }
