@@ -11,6 +11,9 @@ Facts an agent needs here:
 
 - Python, stdlib-only. Entry point: `src/main.py`; config via the
   `TARGET_MULTICAST` / `TARGET_PORT` / `PLAYLIST` environment variables.
+  Python is a **provisional prototype choice, not a final decision** — the
+  channel will be reworked (language included) once the network settles;
+  don't invest in hardening the Python beyond what testing needs.
 - `ffmpeg` / `ffprobe` are required. They exist inside the Docker image and,
   after a devcontainer rebuild, in the devcontainer via the `ffmpeg-apt-get`
   feature in `.devcontainer/devcontainer.json`. Verify with `command -v ffmpeg`

@@ -10,6 +10,12 @@ lifecycle control comes in through the channel's own (planned) HTTP API, and
 the media library database is off-limits here: the network pushes resolved
 playlists (video paths plus ad-break points) to the channel.
 
+> **Status / language:** what exists here is a working *prototype* used to
+> validate the streaming pipeline. The choice of Python is **not final** —
+> this subproject was built in Python as a quick test vehicle, and it will be
+> reworked (language and shape included) once the network settles. Treat the
+> current code as a spec-in-motion, not an implementation decision.
+
 ## How it works today
 
 `src/main.py` is a working prototype:

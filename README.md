@@ -47,45 +47,50 @@ own `AGENTS.md` with project-specific facts.
 
 | Path             | Purpose                                                     | Status             |
 | ---------------- | ----------------------------------------------------------- | ------------------ |
-| `network/`       | Master & manager: channel lifecycle, media library, REST API | concept + first code |
-| `channel/`       | One TV channel: scheduled FFmpeg playlist streaming         | working prototype |
+| `network/`       | Master & manager: channel lifecycle, media library, REST API | working first version (Go) |
+| `channel/`       | One TV channel: scheduled FFmpeg playlist streaming         | working prototype (Python, provisional) |
 | `management-ui/` | Web UI to manage the network (channels, media, schedules)  | concept            |
 | `tv-ui/`         | Virtual TV web UI with smart on-demand channel start/stop   | concept            |
 | `sample-media/`  | Sample media (gitignored via `*.mov`; fresh clones start empty) | data            |
 
-The network's "first code" is the ad-break detection prototype
-(`network/src/ads/adseeker.py`) plus example data (`network/examples/`) — the
-manager itself is not implemented yet.
+The network is implemented in Go and functional end-to-end: channel registry
+CRUD, Docker container lifecycle, media library with ad-break ingestion
+(`network/internal/media/`, CLI: `go run ./cmd/adseeker <video>` from
+`network/`), schedule-to-playlist resolution, on-demand watching with
+keep-alive, and the full REST API of `network/openapi.yaml`. See
+`network/README.md` for details and current limitations.
 
 ## Current status
 
 Code that exists today: the channel prototype (`channel/src/main.py` runs a
 playlist through FFmpeg and relays MPEG-TS over UDP multicast) and the
-network's ad-break detection prototype (`network/src/ads/adseeker.py`, a
-standalone helper).
+network manager (Go: channel registry and Docker lifecycle, SQLite media
+library with ad-break ingestion, playlist resolution, viewer heartbeats —
+all 13 REST operations of `network/openapi.yaml`).
 
 ```bash
 python3 channel/src/main.py   # requires ffmpeg + ffprobe on PATH
-docker compose up             # Linux only — host networking for multicast
+cd network && make run       # network REST API on :8080
+docker compose up            # Linux only — host networking for multicast
 ```
 
-Caveats: ffmpeg is not installed in the devcontainer (it only exists inside the
-Docker image), and `docker compose up` cannot start the channel yet because the
-image does not contain the playlist. Details and known issues live in the root
-`AGENTS.md`.
+Caveats: the channel prototype's playlist defaults are broken in its own
+container (details in the root `AGENTS.md`); the channel language is
+provisional and will be reworked once the network settles.
 
 ## Roadmap
 
 1. **Channel API** — HTTP API so the network can start/stop/configure a
-   channel; reconcile the playlist schema (`network/examples/playlist.json` vs. code).
-2. **Network** — manager container: channel lifecycle (Docker), media library
-   (SQLite: videos, metadata, ad-break points), ingestion pipeline with
-   ad-break detection (the `adseeker` prototype in `network/src/ads/`), REST
-   API for the UIs.
+   channel; reconcile the playlist schema (`network/examples/playlist.json`
+   vs. code). Rework the channel (its Python is provisional).
+2. **Network** — done to first complete version (lifecycle, media library,
+   ingestion, scheduling, watching, REST API); next: channel API integration,
+   ad-content model so playlists can use the detected ad breaks.
 3. **Management UI** — channel management, media pool, playlist/schedule
    editing.
 4. **TV UI + RTSP** — on-demand channels: watching a channel starts it, and a
-   keep-alive window keeps it running after the last viewer leaves.
+   keep-alive window keeps it running after the last viewer leaves
+   (network-side support is already implemented).
 5. **Plugins** — Kodi and Jellyfin plugins exposing ReWave as a TV source with
    channels.
 6. **DVB muxer** — separate container with hardware access (DVB-S2/DVB-C) that

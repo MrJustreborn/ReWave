@@ -21,17 +21,17 @@ point at a local dev server and use the example identifiers from
 ```bash
 cd network/
 cp .env.example .env   # optional; defaults are fine for local dev
-npm install
-npm run dev            # listens on :8080, AUTH_MODE=off by default
+make run               # listens on :8080, AUTH_MODE=off by default
 ```
 
 Then run requests from these files. With the default `AUTH_MODE=off` no
 `Authorization` header is needed; `system.http` shows the bearer-token
 pattern for `AUTH_MODE=jwks`.
 
-Note: while the manager logic is not implemented yet, every business
-endpoint answers `501` — each request below notes the response to expect
-once its operation is implemented. `/healthz` is live.
+Note: `POST /v1/videos` triggers asynchronous ingestion — poll the video
+detail to watch `processed` flip and the ad-break points fill in. Channel
+start/stop require a reachable Docker daemon (the channel image configured
+via `CHANNEL_IMAGE`).
 
 ## Files
 

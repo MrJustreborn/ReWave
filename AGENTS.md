@@ -9,8 +9,8 @@ before working there.
 
 | Path             | Purpose                                                              |
 | ---------------- | -------------------------------------------------------------------- |
-| `channel/`       | One TV channel: scheduled FFmpeg playlist streaming (prototype)        |
-| `network/`       | Master & manager: channel lifecycle, media library, REST API (TypeScript skeleton; handlers stubbed) |
+| `channel/`       | One TV channel: scheduled FFmpeg playlist streaming (working Python prototype; the language is provisional — see its README) |
+| `network/`       | Master & manager: channel lifecycle, media library, scheduling, REST API (Go, first complete version) |
 | `management-ui/` | Web UI to manage the network (concept, no code yet)                   |
 | `tv-ui/`         | Virtual TV web UI with on-demand channel watching (concept, no code yet) |
 | `sample-media/`  | Sample media, gitignored via `*.mov` (fresh clones start empty)       |
@@ -27,26 +27,29 @@ before working there.
 
 ## Repo-wide facts
 
-- There is no test suite, linter, or CI anywhere in this repo; don't go
-  looking for test commands. The only build/typecheck entry points are the
-  npm scripts in `network/` (`npm run typecheck`, `npm run build`).
+- The network has a real test suite: `go test ./...` from `network/` (plus
+  `go vet ./...` and compiling — that is the whole quality gate). Elsewhere
+  there are still no tests, linters, or CI.
 - Python code in `channel/` is stdlib-only: no `requirements.txt`, no pip
   dependencies (the venv under `channel/venv` is untracked local clutter; the
-  Docker image installs nothing).
-- The `network/` subproject is TypeScript on Node.js (npm; see its AGENTS.md).
-  Its API types and auth-scope map are generated from `network/openapi.yaml`
-  into `network/src/generated/` at install/build time — gitignored and
-  always regenerated; never edit or commit that directory.
-- `ffmpeg` and `ffprobe` are hard requirements. They exist inside the Docker
-  image (`channel/Dockerfile`) and are installed into the devcontainer via the
-  `ffmpeg-apt-get` feature in `.devcontainer/devcontainer.json` (takes effect
-  after a devcontainer rebuild; for an already-running container,
-  `sudo apt-get update && sudo apt-get install -y ffmpeg` works). Verify with
+  Docker image installs nothing). Python is a prototype choice, not a
+  decision — the channel will be reworked once the network settles.
+- The `network/` subproject is Go (see its AGENTS.md). Its API types and
+  server interface are generated from `network/openapi.yaml` into
+  `network/internal/httpapi/gen/` at build time — gitignored and always
+  regenerated; never edit or commit that directory.
+- `ffmpeg` and `ffprobe` are hard requirements. They are installed into the
+  devcontainer via the `ffmpeg-apt-get` feature in
+  `.devcontainer/devcontainer.json` and exist inside both Docker images
+  (channel and network — ingestion runs ffmpeg in-process). Verify with
   `command -v ffmpeg` before blaming the code. Note: the devcontainer uses
-  Ubuntu 24.04's ffmpeg (6.1.x) while the channel image uses Debian's — a minor
+  Ubuntu 24.04's ffmpeg (6.1.x) while the images use Debian's — a minor
   version skew that is acceptable for dev work.
-- Docker: `docker compose up` builds `channel/` with `network_mode: host`
-  (host networking is required for multicast; Linux only).
+- Docker: `docker compose up` builds `channel/` (tagged `rewave-channel`) and
+  `network/`; channels use `network_mode: host` (host networking is required
+  for multicast; Linux only). **Never** run docker build/container smoke
+  tests from inside the devcontainer — docker-in-docker is unreliable there
+  (broken credential helper); use the host instead.
 
 ## Channel gotchas
 
@@ -56,32 +59,40 @@ before working there.
   project — dev sample data only, not an architectural dependency; the
   channel API will replace it. The Dockerfile copies only `src/`, so in the
   container the default resolves to `/network/examples/playlist.json`, which
-  is neither copied nor mounted — compose currently cannot start the channel
-  successfully (mounting a playlist and setting `PLAYLIST` in compose would
-  fix it).
+  is neither copied nor mounted — compose's `channel-1` service cannot start
+  as-is (the network-created channel containers set `PLAYLIST` explicitly,
+  which works).
 - Schema mismatch: `main()` sorts slots by `entry["timestamp"]` and reads
   slot-level `file`/`type`, but `network/examples/playlist.json` slots have
   `start`/`end` plus a nested `stream` array — running main.py against the
-  example playlist raises `KeyError`. Expect schema-reconciliation work
-  rather than "fixing" one side blindly.
+  example playlist raises `KeyError`. The network's scheduling shim
+  (`scheduling.PlaylistFor`) serializes playlists into the flat
+  `timestamp`/`file`/`type` shape main.py expects; the channel HTTP API
+  (roadmap) will replace the shim.
 
 ## Network gotchas
 
-- `network/` is a TypeScript skeleton: all REST handlers are `501` stubs.
-  API types are generated from `openapi.yaml` into `src/generated/` during
-  install/build (gitignored, always regenerated); the `predev`/`prebuild`/
-  `typecheck` scripts run the generation themselves, so nothing depends on
-  `postinstall` running (npm's install-scripts policy may skip it).
-- Ad-break detection is `network/src/ingest/adseeker.ts` (ported from the
-  former Python prototype; output parity was verified before deleting it).
-  Run it from `network/` via
-  `npm run adseeker -- <video> [--min-duration <seconds>]`.
-- SQLite is Node's built-in `node:sqlite` (not better-sqlite3 — avoids
-  native install scripts; hence the `>=24` engine pin).
-- Migrations are forward-only with checksum validation: never edit an
-  already-applied `network/src/db/migrations/` file — add a new numbered one.
-- `network/examples/` is not consumed by any code yet (it sketches a resolved
-  playlist and per-day schedule templates for the future manager).
+- The network creates channel containers from the image named by
+  `CHANNEL_IMAGE` (default `rewave-channel` — compose tags the channel
+  service accordingly; build it first: `docker compose build channel-1`).
+- The channel push is a shim: the resolved playlist goes into the
+  container's `PLAYLIST` env var in the Python prototype's flat format.
+- The media pool bind for channel containers comes from `MEDIA_HOST_PATH`
+  (host-side path — inside the network's own Docker it is NOT
+  `MEDIA_ROOT`); `MEDIA_ROOT` is only the network's in-container view.
+- SQLite is pure Go (`modernc.org/sqlite`), pool capped at one connection:
+  never query while a result set is open (see `media.Store.FindAll` for the
+  two-phase pattern); wrap multi-statement writes in `db.WithTransaction`.
+- Migrations are forward-only, embedded and checksum-validated: never edit
+  an already-applied `network/internal/db/migrations/*.sql` — add a new
+  numbered one.
+- Schedule slot times (HH:MM) resolve in the server's local timezone; set
+  `TZ` in Docker if that matters.
+- `network/examples/` is not consumed by any code (it sketches a resolved
+  playlist and schedule templates); the live formats are `openapi.yaml` and
+  the channel shim in `internal/scheduling/service.go`.
+- The former TypeScript implementation (skeleton, all handlers stubbed) is
+  preserved on the branch `archive/ts-onion-network`.
 
 ## Conventions
 

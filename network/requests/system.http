@@ -1,7 +1,7 @@
 ### ReWave network — system endpoints and auth examples.
 ### Variable sources: requests/http-client.env.json (JetBrains) or .vscode/settings.json (VS Code REST Client).
 
-### Liveness probe — live (not a stub)
+### Liveness probe — live 
 # Expected: 200 {"status":"ok"}
 GET {{baseUrl}}/healthz
 
@@ -9,7 +9,7 @@ GET {{baseUrl}}/healthz
 # With the local default AUTH_MODE=off the token is ignored; with jwks mode,
 # put a real access token into {{token}} (http-client.private.env.json or the
 # VS Code settings) — it must carry the scope channels:read.
-# Expected: 200 (channel list) once implemented, 501 while stubbed
+# Expected: 200 (channel list)
 GET {{baseUrl}}/v1/channels HTTP/1.1
 Authorization: Bearer {{token}}
 
@@ -18,8 +18,8 @@ Authorization: Bearer {{token}}
 # (not reproducible locally with AUTH_MODE=off — shown for documentation)
 # GET {{baseUrl}}/v1/channels
 
-### Unknown channel id — expected: 404 once implemented, 501 while stubbed
+### Unknown channel id — expected: 404
 # GET {{baseUrl}}/v1/channels/00000000-0000-4000-8000-000000000000
 
-### Malformed channel id (not a UUID) — expected: 400 once implemented, 501 while stubbed
+### Malformed channel id (not a UUID) — expected: 400
 # GET {{baseUrl}}/v1/channels/not-a-uuid
